@@ -34,10 +34,13 @@ class QrStatusCacheIntegrationTest {
 
     @DynamicPropertySource
     static void configureRedis(DynamicPropertyRegistry registry) {
-        String hostOverride = System.getenv("TESTCONTAINERS_HOST_OVERRIDE");
-        String host = (hostOverride != null && !hostOverride.isBlank()) ? hostOverride : redis.getHost();
-        registry.add("spring.data.redis.host", () -> host);
-        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+        String containerIp = redis.getContainerInfo()
+                .getNetworkSettings()
+                .getNetworks()
+                .get("bridge")
+                .getIpAddress();
+        registry.add("spring.data.redis.host", () -> containerIp);
+        registry.add("spring.data.redis.port", () -> 6379);
     }
 
     @Autowired
