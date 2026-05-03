@@ -18,6 +18,7 @@ TEST_USERS = [
 class CircleGuardUser(HttpUser):
     """Simulates a regular campus user: login, check status, submit survey, validate QR."""
 
+    host = "http://localhost:8180"
     wait_time = between(1, 3)
     token = None
     anonymous_id = None
