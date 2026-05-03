@@ -34,7 +34,9 @@ class QrStatusCacheIntegrationTest {
 
     @DynamicPropertySource
     static void configureRedis(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.redis.host", () -> "172.17.0.1");
+        String hostOverride = System.getenv("TESTCONTAINERS_HOST_OVERRIDE");
+        String host = (hostOverride != null && !hostOverride.isBlank()) ? hostOverride : redis.getHost();
+        registry.add("spring.data.redis.host", () -> host);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     }
 
