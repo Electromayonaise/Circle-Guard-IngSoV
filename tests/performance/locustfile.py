@@ -10,8 +10,6 @@ GATEWAY_URL = "http://localhost:8087"
 PROMOTION_URL = "http://localhost:8088"
 
 TEST_USERS = [
-    {"username": "symptom-testuser", "password": "password123"},
-    {"username": "healthy-testuser", "password": "password123"},
     {"username": "testuser", "password": "password123"},
 ]
 
