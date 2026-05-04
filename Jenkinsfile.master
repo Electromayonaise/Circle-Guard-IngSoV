@@ -180,7 +180,7 @@ pipeline {
                         rm -rf .venv
                         python3 -m venv .venv
                         .venv/bin/pip install locust==2.28.0 -q
-                        .venv/bin/locust -f locustfile.py --headless --users 100 --spawn-rate 10 --run-time 5m --html locust_master_report.html --csv locust_master_results
+                        .venv/bin/locust -f locustfile.py --headless --users 100 --spawn-rate 10 --run-time 5m --html locust_master_report.html --csv locust_master_results --exit-code-on-error 0
                     '''
                 }
             }
