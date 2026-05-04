@@ -90,8 +90,8 @@ class CircleGuardUser(HttpUser):
         if not self.token:
             return
         qr_token = None
-        with self.client.post(
-            f"{AUTH_URL}/api/v1/auth/qr-token",
+        with self.client.get(
+            f"{AUTH_URL}/api/v1/auth/qr/generate",
             headers=self._headers(),
             catch_response=True,
             name="[Auth] Generate QR Token"
@@ -113,16 +113,3 @@ class CircleGuardUser(HttpUser):
                 gate_resp.success()
             else:
                 gate_resp.failure(f"Gate validation failed: {gate_resp.status_code}")
-
-    @task(1)
-    def check_actuator_health(self):
-        """Background: health check polling."""
-        with self.client.get(
-            f"{AUTH_URL}/actuator/health",
-            catch_response=True,
-            name="[Auth] Health Check"
-        ) as resp:
-            if resp.status_code == 200:
-                resp.success()
-            else:
-                resp.failure(f"Health check failed: {resp.status_code}")
