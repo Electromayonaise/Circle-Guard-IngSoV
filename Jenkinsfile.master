@@ -23,10 +23,11 @@ pipeline {
             steps {
                 script {
                     def lastTag = sh(script: "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0'", returnStdout: true).trim()
+                    if (!(lastTag ==~ /^v?\d+\.\d+\.\d+$/)) { lastTag = 'v0.0.0' }
                     def parts = lastTag.replaceAll('v', '').tokenize('.')
-                    def major = parts[0]
-                    def minor = parts[1]
-                    def patch = parts[2]
+                    def major = parts.size() > 0 ? parts[0] : '0'
+                    def minor = parts.size() > 1 ? parts[1] : '0'
+                    def patch = parts.size() > 2 ? parts[2] : '0'
                     def tagExists = sh(script: "git rev-parse --verify ${lastTag} 2>/dev/null", returnStatus: true) == 0
                     def commitsSinceTag = tagExists
                         ? sh(script: "git log ${lastTag}..HEAD --oneline", returnStdout: true).trim()
