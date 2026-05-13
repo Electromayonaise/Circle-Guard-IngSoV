@@ -45,7 +45,7 @@ pipeline {
                         patch = (patch.toInteger() + 1).toString()
                     }
 
-                    VERSION   = "v${major}.${minor}.${patch}"
+                    VERSION   = "v${major}.${minor}.${patch}".toString()
                     IMAGE_TAG = VERSION
                     env.VERSION   = VERSION
                     env.IMAGE_TAG = IMAGE_TAG
@@ -99,10 +99,9 @@ pipeline {
                         [name: 'file',         dockerfile: 'docker/Dockerfile.file']
                     ]
                     services.each { svc ->
-                        def image = "${REGISTRY}/circleguard-${svc.name}:${env.VERSION}"
-                        sh "docker build -f ${svc.dockerfile} -t ${image} ."
-                        sh "docker push ${image}"
-                        sh "docker tag ${image} ${REGISTRY}/circleguard-${svc.name}:latest"
+                        sh "docker build -f ${svc.dockerfile} -t ${REGISTRY}/circleguard-${svc.name}:\$VERSION ."
+                        sh "docker push ${REGISTRY}/circleguard-${svc.name}:\$VERSION"
+                        sh "docker tag ${REGISTRY}/circleguard-${svc.name}:\$VERSION ${REGISTRY}/circleguard-${svc.name}:latest"
                         sh "docker push ${REGISTRY}/circleguard-${svc.name}:latest"
                     }
                 }
@@ -117,7 +116,7 @@ pipeline {
                     services.each { svc ->
                         sh """
                             kubectl set image deployment/${svc}-service \
-                                ${svc}-service=${REGISTRY}/circleguard-${svc}:${env.VERSION} \
+                                ${svc}-service=${REGISTRY}/circleguard-${svc}:\$VERSION \
                                 -n ${NAMESPACE} 2>/dev/null || \
                             kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
                             kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true
