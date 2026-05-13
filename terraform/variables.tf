@@ -41,3 +41,28 @@ variable "namespaces" {
   type        = list(string)
   default     = ["dev", "stage", "master"]
 }
+
+variable "postgres_user" {
+  description = "PostgreSQL admin username"
+  type        = string
+  sensitive   = true
+  default     = "admin"
+}
+
+variable "postgres_password" {
+  description = "PostgreSQL admin password"
+  type        = string
+  sensitive   = true
+}
+
+variable "neo4j_password" {
+  description = "Neo4j admin password"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_secret" {
+  description = "JWT signing secret"
+  type        = string
+  sensitive   = true
+}

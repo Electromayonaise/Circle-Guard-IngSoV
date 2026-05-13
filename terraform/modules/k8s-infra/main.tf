@@ -2,6 +2,21 @@ locals {
   ns = var.namespace
 }
 
+# ── Secrets ─────────────────────────────────────────────────────────────────
+
+resource "kubernetes_secret" "circleguard" {
+  metadata {
+    name      = "circleguard-secrets"
+    namespace = local.ns
+  }
+  data = {
+    POSTGRES_USER     = var.postgres_user
+    POSTGRES_PASSWORD = var.postgres_password
+    NEO4J_AUTH        = "neo4j/${var.neo4j_password}"
+    JWT_SECRET        = var.jwt_secret
+  }
+}
+
 # ── PostgreSQL ──────────────────────────────────────────────────────────────
 
 resource "kubernetes_persistent_volume_claim" "postgres" {
@@ -54,12 +69,22 @@ resource "kubernetes_deployment" "postgres" {
           name  = "postgres"
           image = "postgres:16"
           env {
-            name  = "POSTGRES_USER"
-            value = "admin"
+            name = "POSTGRES_USER"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.circleguard.metadata[0].name
+                key  = "POSTGRES_USER"
+              }
+            }
           }
           env {
-            name  = "POSTGRES_PASSWORD"
-            value = "password"
+            name = "POSTGRES_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.circleguard.metadata[0].name
+                key  = "POSTGRES_PASSWORD"
+              }
+            }
           }
           env {
             name  = "POSTGRES_DB"
@@ -79,7 +104,7 @@ resource "kubernetes_deployment" "postgres" {
             mount_path = "/docker-entrypoint-initdb.d"
           }
           readiness_probe {
-            exec { command = ["pg_isready", "-U", "admin", "-d", "circleguard_auth"] }
+            exec { command = ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "circleguard_auth"] }
             initial_delay_seconds = 10
             period_seconds        = 5
           }
@@ -291,8 +316,13 @@ resource "kubernetes_deployment" "neo4j" {
           name  = "neo4j"
           image = "neo4j:5"
           env {
-            name  = "NEO4J_AUTH"
-            value = "neo4j/password"
+            name = "NEO4J_AUTH"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.circleguard.metadata[0].name
+                key  = "NEO4J_AUTH"
+              }
+            }
           }
           env {
             name  = "NEO4J_PLUGINS"
@@ -339,14 +369,13 @@ resource "kubernetes_config_map" "circleguard_config" {
     namespace = local.ns
   }
   data = {
-    POSTGRES_HOST   = "circleguard-postgres"
-    POSTGRES_PORT   = "5432"
-    REDIS_HOST      = "circleguard-redis"
-    REDIS_PORT      = "6379"
+    POSTGRES_HOST  = "circleguard-postgres"
+    POSTGRES_PORT  = "5432"
+    REDIS_HOST     = "circleguard-redis"
+    REDIS_PORT     = "6379"
     KAFKA_BOOTSTRAP = "circleguard-kafka:9092"
-    NEO4J_URI       = "bolt://circleguard-neo4j:7687"
-    JWT_SECRET      = "changeme-override-with-k8s-secret"
-    JWT_EXPIRATION  = "86400000"
+    NEO4J_URI      = "bolt://circleguard-neo4j:7687"
+    JWT_EXPIRATION = "86400000"
   }
 
   depends_on = [
