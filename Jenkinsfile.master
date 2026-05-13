@@ -117,14 +117,10 @@ pipeline {
                                 ${svc}-service=${REGISTRY}/circleguard-${svc}:\$VERSION \
                                 -n ${NAMESPACE} 2>/dev/null || \
                             kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
-                            kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true
                         """
+                        sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=240s"
+                        sh "kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true"
                     }
-                    sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=180s"
-                    sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=240s"
-                    sh "kubectl rollout status deployment/notification-service -n ${NAMESPACE} --timeout=180s"
-                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
-                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
                 }
             }
         }
