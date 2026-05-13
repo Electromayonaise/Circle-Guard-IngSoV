@@ -27,6 +27,8 @@ spec:
               value: "admin"
             - name: SPRING_DATASOURCE_PASSWORD
               value: "password"
+            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+              value: "5"
             - name: SPRING_NEO4J_URI
               value: "$(NEO4J_URI)"
             - name: SPRING_NEO4J_AUTHENTICATION_USERNAME
