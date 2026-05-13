@@ -4,7 +4,7 @@ pipeline {
     environment {
         REGISTRY                       = "localhost:5000"
         NAMESPACE                      = "dev"
-        SERVICES                       = "auth identity form promotion notification gateway"
+        SERVICES                       = "auth identity form promotion notification gateway dashboard file"
         IMAGE_TAG                      = "dev-${BUILD_NUMBER}"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
@@ -27,6 +27,8 @@ pipeline {
                               :services:circleguard-promotion-service:build \
                               :services:circleguard-notification-service:build \
                               :services:circleguard-gateway-service:build \
+                              :services:circleguard-dashboard-service:build \
+                              :services:circleguard-file-service:build \
                               -x test --no-daemon'
             }
         }
@@ -39,6 +41,8 @@ pipeline {
                               :services:circleguard-promotion-service:checkstyleMain \
                               :services:circleguard-notification-service:checkstyleMain \
                               :services:circleguard-gateway-service:checkstyleMain \
+                              :services:circleguard-dashboard-service:checkstyleMain \
+                              :services:circleguard-file-service:checkstyleMain \
                               --no-daemon --continue || true'
             }
         }
@@ -51,6 +55,8 @@ pipeline {
                               :services:circleguard-promotion-service:test \
                               :services:circleguard-notification-service:test \
                               :services:circleguard-gateway-service:test \
+                              :services:circleguard-dashboard-service:test \
+                              :services:circleguard-file-service:test \
                               --no-daemon -PexcludeIntegration'
             }
             post {
@@ -69,7 +75,9 @@ pipeline {
                         [name: 'form',         dockerfile: 'docker/Dockerfile.form'],
                         [name: 'promotion',    dockerfile: 'docker/Dockerfile.promotion'],
                         [name: 'notification', dockerfile: 'docker/Dockerfile.notification'],
-                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway']
+                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway'],
+                        [name: 'dashboard',    dockerfile: 'docker/Dockerfile.dashboard'],
+                        [name: 'file',         dockerfile: 'docker/Dockerfile.file']
                     ]
                     services.each { svc ->
                         def image = "${REGISTRY}/circleguard-${svc.name}:${IMAGE_TAG}"
@@ -86,7 +94,7 @@ pipeline {
             steps {
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
-                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway']
+                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
                             kubectl set image deployment/${svc}-service \
@@ -99,6 +107,8 @@ pipeline {
                     sh "kubectl rollout status deployment/form-service -n ${NAMESPACE} --timeout=120s"
                     sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=180s"
                     sh "kubectl rollout status deployment/gateway-service -n ${NAMESPACE} --timeout=120s"
+                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
+                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
                 }
             }
         }
@@ -112,7 +122,9 @@ pipeline {
                         [name: 'form-service',         port: 8086],
                         [name: 'promotion-service',    port: 8088],
                         [name: 'notification-service', port: 8082],
-                        [name: 'gateway-service',      port: 8087]
+                        [name: 'gateway-service',      port: 8087],
+                        [name: 'dashboard-service',    port: 8084],
+                        [name: 'file-service',         port: 8085]
                     ]
                     services.each { svc ->
                         def pod = "smoke-${svc.name.replace('-service','')}-${BUILD_NUMBER}"

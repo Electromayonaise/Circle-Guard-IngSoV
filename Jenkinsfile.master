@@ -61,6 +61,8 @@ pipeline {
                               :services:circleguard-promotion-service:build \
                               :services:circleguard-notification-service:build \
                               :services:circleguard-gateway-service:build \
+                              :services:circleguard-dashboard-service:build \
+                              :services:circleguard-file-service:build \
                               -PexcludeIntegration --no-daemon'
             }
         }
@@ -73,6 +75,8 @@ pipeline {
                               :services:circleguard-promotion-service:test \
                               :services:circleguard-notification-service:test \
                               :services:circleguard-gateway-service:test \
+                              :services:circleguard-dashboard-service:test \
+                              :services:circleguard-file-service:test \
                               -PexcludeIntegration --no-daemon'
             }
             post {
@@ -89,7 +93,9 @@ pipeline {
                         [name: 'form',         dockerfile: 'docker/Dockerfile.form'],
                         [name: 'promotion',    dockerfile: 'docker/Dockerfile.promotion'],
                         [name: 'notification', dockerfile: 'docker/Dockerfile.notification'],
-                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway']
+                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway'],
+                        [name: 'dashboard',    dockerfile: 'docker/Dockerfile.dashboard'],
+                        [name: 'file',         dockerfile: 'docker/Dockerfile.file']
                     ]
                     services.each { svc ->
                         def image = "${REGISTRY}/circleguard-${svc.name}:${env.VERSION}"
@@ -106,7 +112,7 @@ pipeline {
             steps {
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
-                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway']
+                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
                             kubectl set image deployment/${svc}-service \
@@ -119,6 +125,8 @@ pipeline {
                     sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=180s"
                     sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=240s"
                     sh "kubectl rollout status deployment/notification-service -n ${NAMESPACE} --timeout=180s"
+                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
+                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
                 }
             }
         }
@@ -251,12 +259,12 @@ pipeline {
 
         stage('Tag Release') {
             steps {
-                sh """
+                sh '''
                     git config user.email "jenkins@circleguard.local"
                     git config user.name "Jenkins CI"
-                    git tag -a ${env.VERSION} -m "Release ${env.VERSION} -- Build #${BUILD_NUMBER}"
-                    git push origin ${env.VERSION} || echo "Push tag requires remote access"
-                """
+                    git tag -a $VERSION -m "Release $VERSION -- Build #$BUILD_NUMBER"
+                    git push origin $VERSION
+                '''
             }
         }
     }

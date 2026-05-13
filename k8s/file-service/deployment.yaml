@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-service
+  template:
+    metadata:
+      labels:
+        app: file-service
+    spec:
+      containers:
+        - name: file-service
+          image: localhost:5000/circleguard-file:latest
+          ports:
+            - containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: circleguard-config
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+          readinessProbe:
+            tcpSocket:
+              port: 8085
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - name: uploads
+          emptyDir: {}

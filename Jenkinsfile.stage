@@ -27,6 +27,8 @@ pipeline {
                               :services:circleguard-promotion-service:build \
                               :services:circleguard-notification-service:build \
                               :services:circleguard-gateway-service:build \
+                              :services:circleguard-dashboard-service:build \
+                              :services:circleguard-file-service:build \
                               --no-daemon -PexcludeIntegration'
             }
             post {
@@ -43,7 +45,9 @@ pipeline {
                         [name: 'form',         dockerfile: 'docker/Dockerfile.form'],
                         [name: 'promotion',    dockerfile: 'docker/Dockerfile.promotion'],
                         [name: 'notification', dockerfile: 'docker/Dockerfile.notification'],
-                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway']
+                        [name: 'gateway',      dockerfile: 'docker/Dockerfile.gateway'],
+                        [name: 'dashboard',    dockerfile: 'docker/Dockerfile.dashboard'],
+                        [name: 'file',         dockerfile: 'docker/Dockerfile.file']
                     ]
                     services.each { svc ->
                         def image = "${REGISTRY}/circleguard-${svc.name}:${IMAGE_TAG}"
@@ -58,7 +62,7 @@ pipeline {
             steps {
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
-                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway']
+                    def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
                             kubectl set image deployment/${svc}-service \
@@ -69,6 +73,8 @@ pipeline {
                     }
                     sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=180s"
                     sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=240s"
+                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
+                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
                 }
             }
         }

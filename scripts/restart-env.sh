@@ -13,7 +13,13 @@ fi
 echo "Registry IP: $REGISTRY_IP"
 
 # 2. Update containerd mirror config on all Kind nodes
-for NODE in $(kind get nodes --name circleguard); do
+# Use docker directly to avoid dependency on kind CLI being in PATH
+KIND_NODES=$(docker ps --format '{{.Names}}' | grep '^circleguard-' | grep -v 'registry')
+if [ -z "$KIND_NODES" ]; then
+  echo "ERROR: no Kind nodes found (circleguard-* containers)"
+  exit 1
+fi
+for NODE in $KIND_NODES; do
   echo "Updating mirror on $NODE..."
   docker exec "$NODE" sh -c "
     mkdir -p /etc/containerd/certs.d/localhost:5000

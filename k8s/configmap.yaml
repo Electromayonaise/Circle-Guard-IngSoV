@@ -15,3 +15,4 @@ data:
   QR_SECRET: "my-qr-secret-key-for-dev-1234567890"
   QR_EXPIRATION: "300000"
   SERVICES_IDENTITY_URL: "http://identity-service:8083"
+  CIRCLEGUARD_PROMOTION_SERVICE_URL: "http://promotion-service:8088"
