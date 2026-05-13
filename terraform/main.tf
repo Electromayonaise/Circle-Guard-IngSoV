@@ -29,8 +29,12 @@ module "infra" {
   source   = "./modules/k8s-infra"
   for_each = toset(var.namespaces)
 
-  namespace        = each.value
-  acr_login_server = module.acr.login_server
+  namespace         = each.value
+  acr_login_server  = module.acr.login_server
+  postgres_user     = var.postgres_user
+  postgres_password = var.postgres_password
+  neo4j_password    = var.neo4j_password
+  jwt_secret        = var.jwt_secret
 
   depends_on = [module.namespaces]
 }

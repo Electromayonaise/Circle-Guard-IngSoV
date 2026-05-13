@@ -18,6 +18,9 @@ resource "kubernetes_deployment" "service" {
           env_from {
             config_map_ref { name = "circleguard-config" }
           }
+          env_from {
+            secret_ref { name = "circleguard-secrets" }
+          }
           dynamic "env" {
             for_each = var.has_db ? [1] : []
             content {
@@ -29,14 +32,24 @@ resource "kubernetes_deployment" "service" {
             for_each = var.has_db ? [1] : []
             content {
               name  = "SPRING_DATASOURCE_USERNAME"
-              value = "admin"
+              value_from {
+                secret_key_ref {
+                  name = "circleguard-secrets"
+                  key  = "POSTGRES_USER"
+                }
+              }
             }
           }
           dynamic "env" {
             for_each = var.has_db ? [1] : []
             content {
               name  = "SPRING_DATASOURCE_PASSWORD"
-              value = "password"
+              value_from {
+                secret_key_ref {
+                  name = "circleguard-secrets"
+                  key  = "POSTGRES_PASSWORD"
+                }
+              }
             }
           }
           dynamic "env" {
