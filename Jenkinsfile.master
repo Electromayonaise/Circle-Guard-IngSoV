@@ -4,8 +4,6 @@ pipeline {
     environment {
         REGISTRY                       = "localhost:5000"
         NAMESPACE                      = "master"
-        VERSION                        = ""
-        IMAGE_TAG                      = ""
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
         DOCKER_HOST                    = "unix:///var/run/docker.sock"
