@@ -72,6 +72,7 @@ pipeline {
                         """
                     }
                     sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=180s"
+                    sh "kubectl rollout status deployment/gateway-service -n ${NAMESPACE} --timeout=120s"
                     sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=240s"
                     sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
                     sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
