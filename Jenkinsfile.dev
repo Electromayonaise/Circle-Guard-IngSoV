@@ -85,6 +85,8 @@ pipeline {
                         sh "docker push ${image}"
                         sh "docker tag ${image} ${REGISTRY}/circleguard-${svc.name}:dev-latest"
                         sh "docker push ${REGISTRY}/circleguard-${svc.name}:dev-latest"
+                        sh "docker tag ${image} ${REGISTRY}/circleguard-${svc.name}:latest"
+                        sh "docker push ${REGISTRY}/circleguard-${svc.name}:latest"
                     }
                 }
             }
