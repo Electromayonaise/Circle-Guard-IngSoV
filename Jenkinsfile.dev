@@ -2,13 +2,18 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY                       = "localhost:5000"
+        REGISTRY                       = "circleguarddevacr.azurecr.io"
         NAMESPACE                      = "dev"
         SERVICES                       = "auth identity form promotion notification gateway dashboard file"
         IMAGE_TAG                      = "dev-${BUILD_NUMBER}"
+        AKS_RG                         = "circleguard-dev-rg"
+        AKS_CLUSTER                    = "circleguard-dev-aks"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
         DOCKER_HOST                    = "unix:///var/run/docker.sock"
+        ARM_CLIENT_ID                  = credentials('azure-client-id')
+        ARM_CLIENT_SECRET              = credentials('azure-client-secret')
+        ARM_TENANT_ID                  = credentials('azure-tenant-id')
     }
 
     stages {
@@ -68,6 +73,12 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    az acr login --name circleguarddevacr
+                '''
                 script {
                     def services = [
                         [name: 'auth',         dockerfile: 'docker/Dockerfile.auth'],
@@ -94,6 +105,15 @@ pipeline {
 
         stage('Deploy to Dev') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    az aks get-credentials \
+                        --resource-group "$AKS_RG" \
+                        --name "$AKS_CLUSTER" \
+                        --overwrite-existing
+                '''
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
