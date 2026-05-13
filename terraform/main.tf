@@ -14,6 +14,8 @@ module "acr" {
   resource_group_name = module.aks.resource_group_name
   location            = var.location
   aks_kubelet_id      = module.aks.kubelet_identity_id
+
+  depends_on = [module.aks]
 }
 
 module "namespaces" {
@@ -23,26 +25,12 @@ module "namespaces" {
   depends_on = [module.aks]
 }
 
-module "infra_dev" {
-  source             = "./modules/k8s-infra"
-  namespace          = "dev"
-  acr_login_server   = module.acr.login_server
+module "infra" {
+  source   = "./modules/k8s-infra"
+  for_each = toset(var.namespaces)
 
-  depends_on = [module.namespaces]
-}
-
-module "infra_stage" {
-  source             = "./modules/k8s-infra"
-  namespace          = "stage"
-  acr_login_server   = module.acr.login_server
-
-  depends_on = [module.namespaces]
-}
-
-module "infra_master" {
-  source             = "./modules/k8s-infra"
-  namespace          = "master"
-  acr_login_server   = module.acr.login_server
+  namespace        = each.value
+  acr_login_server = module.acr.login_server
 
   depends_on = [module.namespaces]
 }
@@ -58,13 +46,11 @@ locals {
     { name = "dashboard",    port = 8084, has_db = true,  db_name = "circleguard_dashboard" },
     { name = "file",         port = 8085, has_db = false, db_name = "" },
   ]
-
-  deploy_envs = ["dev", "stage", "master"]
 }
 
 module "services" {
   source   = "./modules/k8s-service"
-  for_each = { for pair in setproduct(local.deploy_envs, local.services) : "${pair[0]}-${pair[1].name}" => { namespace = pair[0], service = pair[1] } }
+  for_each = { for pair in setproduct(var.namespaces, local.services) : "${pair[0]}-${pair[1].name}" => { namespace = pair[0], service = pair[1] } }
 
   namespace        = each.value.namespace
   service_name     = each.value.service.name
@@ -74,5 +60,5 @@ module "services" {
   has_db           = each.value.service.has_db
   db_name          = each.value.service.db_name
 
-  depends_on = [module.infra_dev, module.infra_stage, module.infra_master]
+  depends_on = [module.infra]
 }

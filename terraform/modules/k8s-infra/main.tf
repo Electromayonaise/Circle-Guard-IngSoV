@@ -15,6 +15,7 @@ resource "kubernetes_persistent_volume_claim" "postgres" {
       requests = { storage = "2Gi" }
     }
   }
+  wait_until_bound = false
 }
 
 resource "kubernetes_config_map" "postgres_init" {
@@ -42,6 +43,7 @@ resource "kubernetes_deployment" "postgres" {
     name      = "circleguard-postgres"
     namespace = local.ns
   }
+  wait_for_rollout = false
   spec {
     replicas = 1
     selector { match_labels = { app = "circleguard-postgres" } }
@@ -62,6 +64,10 @@ resource "kubernetes_deployment" "postgres" {
           env {
             name  = "POSTGRES_DB"
             value = "circleguard_auth"
+          }
+          env {
+            name  = "PGDATA"
+            value = "/var/lib/postgresql/data/pgdata"
           }
           port { container_port = 5432 }
           volume_mount {
@@ -139,6 +145,7 @@ resource "kubernetes_deployment" "kafka" {
     name      = "circleguard-kafka"
     namespace = local.ns
   }
+  wait_for_rollout = false
   spec {
     replicas = 1
     selector { match_labels = { app = "circleguard-kafka" } }
@@ -230,6 +237,7 @@ resource "kubernetes_deployment" "redis" {
     name      = "circleguard-redis"
     namespace = local.ns
   }
+  wait_for_rollout = false
   spec {
     replicas = 1
     selector { match_labels = { app = "circleguard-redis" } }
@@ -272,6 +280,7 @@ resource "kubernetes_deployment" "neo4j" {
     name      = "circleguard-neo4j"
     namespace = local.ns
   }
+  wait_for_rollout = false
   spec {
     replicas = 1
     selector { match_labels = { app = "circleguard-neo4j" } }

@@ -1,4 +1,6 @@
 resource "kubernetes_deployment" "service" {
+  wait_for_rollout = false
+
   metadata {
     name      = "${var.service_name}-service"
     namespace = var.namespace
