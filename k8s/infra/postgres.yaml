@@ -20,6 +20,8 @@ data:
       CREATE DATABASE circleguard_identity;
       CREATE DATABASE circleguard_form;
       CREATE DATABASE circleguard_promotion;
+      CREATE DATABASE circleguard_dashboard;
+      CREATE DATABASE circleguard_file;
     EOSQL
 ---
 apiVersion: apps/v1
