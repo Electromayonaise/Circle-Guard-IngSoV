@@ -261,13 +261,13 @@ pipeline {
         stage('Tag Release') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                    sh '''
+                    sh """
                         git config user.email "jenkins@circleguard.local"
                         git config user.name "Jenkins CI"
-                        git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/Electromayonaise/Circle-Guard-IngSoV.git
-                        git tag -a $VERSION -m "Release $VERSION -- Build #$BUILD_NUMBER"
-                        git push origin $VERSION
-                    '''
+                        git remote set-url origin https://\${GIT_USER}:\${GIT_TOKEN}@github.com/Electromayonaise/Circle-Guard-IngSoV.git
+                        git tag -a ${env.VERSION} -m "Release ${env.VERSION} -- Build #${BUILD_NUMBER}"
+                        git push origin ${env.VERSION}
+                    """
                 }
             }
         }
