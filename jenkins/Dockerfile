@@ -18,6 +18,8 @@ RUN apt-get update -qq && \
     curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
     rm kubectl && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    # Allow jenkins user to access Docker socket
+    groupadd -f docker && usermod -aG docker jenkins
 
 USER jenkins
