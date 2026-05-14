@@ -1,157 +1,165 @@
-# Terraform Infrastructure Architecture
+# Arquitectura de Infraestructura Terraform
 
-> **Rendering:** This document uses [Mermaid](https://mermaid.js.org/) diagrams that render automatically on GitHub.
-> To export as PNG/SVG (e.g., for presentations), paste any diagram block into [mermaid.live](https://mermaid.live) and use the export button.
+> **Visualización:** Este documento utiliza diagramas [Mermaid](https://mermaid.js.org/) que se renderizan automáticamente en GitHub.
+> Para exportar como PNG/SVG (presentaciones, documentos), pega cualquier bloque de diagrama en [mermaid.live](https://mermaid.live) y usa el botón de exportar.
 
 ---
 
-## Overview
+## Descripción General
 
-Terraform manages all Azure cloud resources and Kubernetes infrastructure for CircleGuard. It does **not** manage application service deployments — those are owned exclusively by Jenkins pipelines.
+Terraform gestiona todos los recursos de Azure y la infraestructura de Kubernetes para CircleGuard. **No gestiona los despliegues de servicios de aplicación** — esos son responsabilidad exclusiva de los pipelines de Jenkins.
 
-**Remote state backend:** HCP Terraform Cloud, org `IngSoV`, workspace `circleguard-dev`.
+**Backend remoto:** HCP Terraform Cloud, organización `IngSoV`, workspace `circleguard-dev`.
 
-The infrastructure is organized into four reusable modules called from a single root module (`terraform/main.tf`):
+La infraestructura se organiza en cuatro módulos reutilizables invocados desde el módulo raíz (`terraform/main.tf`):
 
-| Module | Provisions |
+| Módulo | Aprovisiona |
 |---|---|
-| `aks-cluster` | Azure Resource Group + AKS cluster with 2 nodes |
-| `acr` | Azure Container Registry + AcrPull role for AKS |
-| `k8s-namespace` | Kubernetes namespaces (`dev`, `stage`, `master`) |
-| `k8s-infra` | Infra stack per namespace (PostgreSQL, Kafka, Redis, Neo4j, Secrets, ConfigMap) |
+| `aks-cluster` | Resource Group de Azure + clúster AKS con 2 nodos |
+| `acr` | Azure Container Registry + rol AcrPull para AKS |
+| `k8s-namespace` | Namespaces de Kubernetes (`dev`, `stage`, `master`) |
+| `k8s-infra` | Stack de infra por namespace (PostgreSQL, Kafka, Redis, Neo4j, Secrets, ConfigMap) |
 
 ---
 
-## Module Dependency Graph
+## Grafo de Dependencias entre Módulos
 
-The four modules have a strict dependency chain: AKS must exist before anything else, ACR and namespaces are provisioned in parallel once AKS is ready, and the infra stack is deployed last into each namespace.
+Los módulos tienen una cadena de dependencias estricta: AKS debe existir antes que cualquier otro recurso. Una vez listo AKS, el registry y los namespaces se aprovisionan en paralelo. Finalmente, el stack de infra se despliega en cada namespace.
 
 ```mermaid
 graph TD
-    ROOT["<b>Root Module</b><br/>terraform/main.tf"]
+    ROOT["<b>Módulo Raíz</b><br/>terraform/main.tf"]
 
-    ROOT -->|"cluster config"| AKS["<b>aks-cluster</b><br/>Azure Resource Group<br/>AKS Cluster"]
-    AKS -->|"depends_on"| ACR["<b>acr</b><br/>Container Registry<br/>AcrPull role binding"]
+    ROOT -->|"config del clúster"| AKS["<b>aks-cluster</b><br/>Resource Group de Azure<br/>Clúster AKS"]
+    AKS -->|"depends_on"| ACR["<b>acr</b><br/>Container Registry<br/>Binding de rol AcrPull"]
     AKS -->|"depends_on"| NS["<b>k8s-namespace</b><br/>Namespaces:<br/>dev / stage / master"]
     NS -->|"for_each namespace<br/>depends_on"| INFRA["<b>k8s-infra</b><br/>PostgreSQL + Kafka<br/>Redis + Neo4j<br/>Secrets + ConfigMap"]
 ```
 
 ---
 
-## Azure Resources
+## Recursos de Azure
 
-Terraform provisions two Azure resources inside a dedicated resource group. The AKS cluster uses a system-assigned managed identity; its kubelet identity receives `AcrPull` permissions on the registry so pods can pull images without credentials.
+Terraform aprovisiona dos recursos de Azure dentro de un Resource Group dedicado. El clúster AKS usa una identidad administrada asignada por el sistema; su identidad de kubelet recibe permisos `AcrPull` sobre el registry para que los pods puedan descargar imágenes sin credenciales adicionales.
 
 ```mermaid
 graph LR
     subgraph AZ["Azure — eastus"]
         RG["Resource Group<br/><i>circleguard-dev-rg</i>"]
 
-        subgraph AKS["AKS Cluster — circleguard-dev-aks"]
-            NP["Default Node Pool<br/>2 nodes · Standard_B2s<br/>Kubernetes 1.34 (pinned)"]
-            OID["OIDC Issuer<br/>Workload Identity enabled"]
-            ID["SystemAssigned Identity<br/>kubelet_identity_id"]
+        subgraph AKS_BOX["Clúster AKS — circleguard-dev-aks"]
+            NP["Node Pool por defecto<br/>2 nodos · Standard_B2s<br/>Kubernetes 1.34 (fijado)"]
+            OID["OIDC Issuer habilitado<br/>Workload Identity habilitado"]
+            ID["Identidad SystemAssigned<br/>kubelet_identity_id"]
         end
 
         subgraph ACR_BOX["Container Registry"]
             ACR_NAME["circleguarddevacr.azurecr.io<br/>SKU: Basic"]
-            ROLE["Role Assignment<br/>AcrPull → kubelet identity"]
+            ROLE["Role Assignment<br/>AcrPull → identidad kubelet"]
         end
 
-        RG --> AKS
+        RG --> AKS_BOX
         RG --> ACR_BOX
-        ID -->|"grants"| ROLE
+        ID -->|"otorga"| ROLE
     end
 ```
 
-> **Why Kubernetes 1.34 is pinned:** Without an explicit version, Azure automatically upgrades the cluster during `terraform apply`, causing a 40-minute operation. Pinning prevents unintended upgrades.
+> **Por qué Kubernetes 1.34 está fijado:** Sin una versión explícita, Azure actualiza el clúster automáticamente durante `terraform apply`, generando una operación de 40 minutos. Fijar la versión evita actualizaciones no planificadas.
 
 ---
 
-## Kubernetes Resources (per namespace)
+## Recursos de Kubernetes (por namespace)
 
-The `k8s-infra` module is instantiated three times — once for `dev`, `stage`, and `master`. Each namespace gets an identical, isolated infra stack. All four databases share the same `circleguard-secrets` Secret and `circleguard-config` ConfigMap.
+El módulo `k8s-infra` se instancia tres veces — una por cada namespace (`dev`, `stage`, `master`). Cada namespace recibe un stack de infra idéntico e independiente.
+
+Los cuatro componentes de infra exponen sus endpoints a través del ConfigMap `circleguard-config`, que los servicios de aplicación consumen para conectarse. Las credenciales sensibles se almacenan en el Secret `circleguard-secrets`.
 
 ```mermaid
 graph TD
-    subgraph NS["Namespace: dev  (identical stack in stage and master)"]
+    subgraph NS["Namespace: dev  (stack idéntico en stage y master)"]
         direction TB
 
-        subgraph SECRETS["Credentials"]
+        subgraph CREDS["Configuración y Credenciales"]
             S["Secret: circleguard-secrets<br/>POSTGRES_USER · POSTGRES_PASSWORD<br/>NEO4J_AUTH · NEO4J_PASSWORD · JWT_SECRET"]
             C["ConfigMap: circleguard-config<br/>POSTGRES_HOST:5432 · REDIS_HOST:6379<br/>KAFKA_BOOTSTRAP:9092 · NEO4J_URI:7687<br/>JWT_EXPIRATION: 86400000"]
         end
 
         subgraph PG["PostgreSQL 16"]
             PVC["PersistentVolumeClaim<br/>2Gi RWO (Azure Disk)"]
-            PG_INIT["ConfigMap: postgres-init<br/>creates 6 databases on first boot"]
-            PG_DEP["Deployment: circleguard-postgres<br/>credentials from Secret<br/>PGDATA = /data/pgdata (subdir)"]
+            PG_INIT["ConfigMap: postgres-init<br/>crea 6 bases de datos al arrancar"]
+            PG_DEP["Deployment: circleguard-postgres<br/>credenciales desde Secret<br/>PGDATA = /data/pgdata"]
             PG_SVC["Service: circleguard-postgres:5432"]
         end
 
-        subgraph KF["Apache Kafka 3.7.0 (KRaft, no ZooKeeper)"]
-            KF_CFG["ConfigMap: kafka-server-config<br/>KRaft mode · single broker/controller"]
+        subgraph KF["Apache Kafka 3.7.0 (KRaft, sin ZooKeeper)"]
+            KF_CFG["ConfigMap: kafka-server-config<br/>modo KRaft · broker y controller en uno"]
             KF_DEP["Deployment: circleguard-kafka<br/>init container: kafka-storage format"]
             KF_SVC["Service: circleguard-kafka<br/>:9092 (broker) · :9093 (controller)"]
         end
 
         subgraph RD["Redis 7 Alpine"]
-            RD_DEP["Deployment: circleguard-redis"]
+            RD_DEP["Deployment: circleguard-redis<br/>sin credenciales requeridas"]
             RD_SVC["Service: circleguard-redis:6379"]
         end
 
-        subgraph N4J["Neo4j 5 + APOC plugin"]
-            N4J_DEP["Deployment: circleguard-neo4j<br/>NEO4J_AUTH from Secret"]
+        subgraph N4J["Neo4j 5 + plugin APOC"]
+            N4J_DEP["Deployment: circleguard-neo4j<br/>NEO4J_AUTH desde Secret"]
             N4J_SVC["Service: circleguard-neo4j<br/>:7474 (HTTP) · :7687 (Bolt)"]
         end
 
-        S -->|"env"| PG_DEP
+        S -->|"POSTGRES_USER/PASSWORD"| PG_DEP
         S -->|"NEO4J_AUTH"| N4J_DEP
-        PG_INIT --> PG_DEP
-        PVC --> PG_DEP
-        KF_CFG --> KF_DEP
+        PG_INIT -->|"script de init"| PG_DEP
+        PVC -->|"volumen de datos"| PG_DEP
+        KF_CFG -->|"configuración"| KF_DEP
+
         PG_DEP --> PG_SVC
         KF_DEP --> KF_SVC
         RD_DEP --> RD_SVC
         N4J_DEP --> N4J_SVC
+
+        PG_SVC -->|"endpoint"| C
+        KF_SVC -->|"endpoint"| C
+        RD_SVC -->|"endpoint"| C
+        N4J_SVC -->|"endpoint"| C
     end
 ```
 
 ---
 
-## Responsibility Boundary
+## Límite de Responsabilidades
 
 ```mermaid
 graph LR
-    TF["Terraform<br/>(this document)"]
-    JK["Jenkins Pipelines<br/>Jenkinsfile.dev/stage/master"]
+    TF["Terraform"]
+    JK["Pipelines Jenkins<br/>Jenkinsfile.dev/stage/master"]
 
-    TF -->|"provisions"| AZURE["Azure resources<br/>Resource Group · AKS · ACR"]
-    TF -->|"provisions"| K8S_INFRA["Kubernetes infra<br/>Namespaces · Secrets · ConfigMaps<br/>PostgreSQL · Kafka · Redis · Neo4j"]
+    TF -->|"aprovisiona"| AZURE["Recursos Azure<br/>Resource Group · AKS · ACR"]
+    TF -->|"aprovisiona"| K8S_INFRA["Infra Kubernetes<br/>Namespaces · Secrets · ConfigMaps<br/>PostgreSQL · Kafka · Redis · Neo4j"]
 
-    JK -->|"builds & pushes"| IMAGES["Docker images → ACR"]
-    JK -->|"deploys"| SERVICES["Application services → AKS<br/>auth · identity · form · promotion<br/>notification · gateway · dashboard · file"]
+    JK -->|"construye y sube"| IMAGES["Imágenes Docker → ACR"]
+    JK -->|"despliega"| SERVICES["Servicios de aplicación → AKS<br/>auth · identity · form · promotion<br/>notification · gateway · dashboard · file"]
 ```
 
-> Keeping these concerns separate means infrastructure changes (e.g., scaling nodes, rotating secrets) never require a Jenkins build, and application deployments never risk modifying infrastructure state.
+> Separar estas responsabilidades garantiza que los cambios de infraestructura (escalar nodos, rotar secrets) no requieren un build de Jenkins, y que los despliegues de aplicación nunca modifican el estado de la infraestructura.
 
 ---
 
-## Terraform Variables
+## Variables de Entrada (HCP Terraform Cloud)
 
-All sensitive values are stored as encrypted variables in HCP Terraform Cloud and never committed to the repository.
+Todos los valores sensibles se almacenan como variables cifradas en HCP Terraform Cloud y nunca se commitean al repositorio.
 
-| Variable | Description | Sensitive |
+| Variable | Descripción | Sensible |
 |---|---|:---:|
-| `resource_group_name` | Azure resource group name | |
-| `cluster_name` | AKS cluster name | |
-| `acr_name` | ACR registry name | |
-| `environment` | Environment label (tag) | |
-| `postgres_user` | PostgreSQL username | |
-| `postgres_password` | PostgreSQL password | Yes |
-| `neo4j_password` | Neo4j password | Yes |
-| `jwt_secret` | JWT signing secret | Yes |
-| `ARM_CLIENT_ID` | Azure Service Principal ID | |
-| `ARM_CLIENT_SECRET` | Azure Service Principal secret | Yes |
-| `ARM_TENANT_ID` | Azure tenant ID | |
-| `ARM_SUBSCRIPTION_ID` | Azure subscription ID | |
+| `resource_group_name` | Nombre del Resource Group de Azure | |
+| `cluster_name` | Nombre del clúster AKS | |
+| `acr_name` | Nombre del registry ACR | |
+| `environment` | Etiqueta de entorno | |
+| `postgres_user` | Usuario de PostgreSQL | |
+| `postgres_password` | Contraseña de PostgreSQL | Sí |
+| `neo4j_password` | Contraseña de Neo4j | Sí |
+| `jwt_secret` | Secreto para firma de JWT | Sí |
+| `ARM_CLIENT_ID` | ID del Service Principal de Azure | |
+| `ARM_CLIENT_SECRET` | Secreto del Service Principal | Sí |
+| `ARM_TENANT_ID` | ID del tenant de Azure | |
+| `ARM_SUBSCRIPTION_ID` | ID de la suscripción de Azure | |
