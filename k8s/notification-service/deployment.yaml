@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-service
@@ -14,12 +14,14 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: localhost:5000/circleguard-notification:latest
+          image: circleguarddevacr.azurecr.io/circleguard-notification:latest
           ports:
             - containerPort: 8082
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "$(KAFKA_BOOTSTRAP)"

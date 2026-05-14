@@ -119,10 +119,10 @@ pipeline {
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
+                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
                             kubectl set image deployment/${svc}-service \
                                 ${svc}-service=${REGISTRY}/circleguard-${svc}:${IMAGE_TAG} \
-                                -n ${NAMESPACE} 2>/dev/null || \
-                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
+                                -n ${NAMESPACE}
                         """
                     }
                     sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=300s"
