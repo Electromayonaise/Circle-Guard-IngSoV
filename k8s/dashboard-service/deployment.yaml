@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dashboard-service
@@ -14,23 +14,31 @@ spec:
     spec:
       containers:
         - name: dashboard-service
-          image: localhost:5000/circleguard-dashboard:latest
+          image: circleguarddevacr.azurecr.io/circleguard-dashboard:latest
           ports:
             - containerPort: 8084
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/circleguard_dashboard"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_USER
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_PASSWORD
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
           readinessProbe:
             tcpSocket:
               port: 8084
-            initialDelaySeconds: 45
+            initialDelaySeconds: 30
             periodSeconds: 10

@@ -2,13 +2,18 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY                       = "localhost:5000"
+        REGISTRY                       = "circleguarddevacr.azurecr.io"
         NAMESPACE                      = "stage"
         IMAGE_TAG                      = "stage-${BUILD_NUMBER}"
+        AKS_RG                         = "circleguard-dev-rg"
+        AKS_CLUSTER                    = "circleguard-dev-aks"
         BASE_URL                       = "http://localhost"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
         DOCKER_HOST                    = "unix:///var/run/docker.sock"
+        ARM_CLIENT_ID                  = credentials('azure-client-id')
+        ARM_CLIENT_SECRET              = credentials('azure-client-secret')
+        ARM_TENANT_ID                  = credentials('azure-tenant-id')
     }
 
     stages {
@@ -38,6 +43,12 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    az acr login --name circleguarddevacr
+                '''
                 script {
                     def services = [
                         [name: 'auth',         dockerfile: 'docker/Dockerfile.auth'],
@@ -60,15 +71,24 @@ pipeline {
 
         stage('Deploy to Stage') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    az aks get-credentials \
+                        --resource-group "$AKS_RG" \
+                        --name "$AKS_CLUSTER" \
+                        --overwrite-existing
+                '''
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
+                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
                             kubectl set image deployment/${svc}-service \
                                 ${svc}-service=${REGISTRY}/circleguard-${svc}:${IMAGE_TAG} \
-                                -n ${NAMESPACE} 2>/dev/null || \
-                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
+                                -n ${NAMESPACE}
                         """
                     }
                     sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=180s"

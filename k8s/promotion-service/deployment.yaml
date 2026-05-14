@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: promotion-service
@@ -14,19 +14,27 @@ spec:
     spec:
       containers:
         - name: promotion-service
-          image: localhost:5000/circleguard-promotion:latest
+          image: circleguarddevacr.azurecr.io/circleguard-promotion:latest
           ports:
             - containerPort: 8088
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/circleguard_promotion"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_USER
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_PASSWORD
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
             - name: SPRING_NEO4J_URI
@@ -34,7 +42,10 @@ spec:
             - name: SPRING_NEO4J_AUTHENTICATION_USERNAME
               value: "neo4j"
             - name: SPRING_NEO4J_AUTHENTICATION_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: NEO4J_PASSWORD
             - name: SPRING_DATA_REDIS_HOST
               value: "$(REDIS_HOST)"
             - name: SPRING_DATA_REDIS_PORT

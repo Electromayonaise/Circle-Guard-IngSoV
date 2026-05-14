@@ -13,6 +13,7 @@ resource "kubernetes_secret" "circleguard" {
     POSTGRES_USER     = var.postgres_user
     POSTGRES_PASSWORD = var.postgres_password
     NEO4J_AUTH        = "neo4j/${var.neo4j_password}"
+    NEO4J_PASSWORD    = var.neo4j_password
     JWT_SECRET        = var.jwt_secret
   }
 }

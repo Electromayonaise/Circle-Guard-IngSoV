@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: file-service
@@ -14,19 +14,22 @@ spec:
     spec:
       containers:
         - name: file-service
-          image: localhost:5000/circleguard-file:latest
+          image: circleguarddevacr.azurecr.io/circleguard-file:latest
           ports:
             - containerPort: 8085
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
+          env:
           volumeMounts:
             - name: uploads
               mountPath: /app/uploads
           readinessProbe:
             tcpSocket:
               port: 8085
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 10
       volumes:
         - name: uploads
