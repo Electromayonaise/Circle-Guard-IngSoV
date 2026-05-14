@@ -14,7 +14,7 @@ pipeline {
         BASE_URL                       = "http://localhost"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
-        DOCKER_HOST                    = "unix:///var/run/docker.sock"
+        DOCKER_HOST                    = "tcp://localhost:2375"
         ARM_CLIENT_ID                  = credentials('azure-client-id')
         ARM_CLIENT_SECRET              = credentials('azure-client-secret')
         ARM_TENANT_ID                  = credentials('azure-tenant-id')
