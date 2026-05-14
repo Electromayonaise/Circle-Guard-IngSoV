@@ -48,7 +48,7 @@ graph LR
         RG["Resource Group<br/><i>circleguard-dev-rg</i>"]
 
         subgraph AKS_BOX["Clúster AKS — circleguard-dev-aks"]
-            NP["Node Pool por defecto<br/>2 nodos · Standard_B4ms<br/>Kubernetes 1.34 (fijado)"]
+            NP["Node Pool por defecto<br/>2 nodos · Standard_B2ms<br/>Kubernetes 1.34 (fijado)"]
             OID["OIDC Issuer habilitado<br/>Workload Identity habilitado"]
             ID["Identidad SystemAssigned<br/>kubelet_identity_id"]
         end
