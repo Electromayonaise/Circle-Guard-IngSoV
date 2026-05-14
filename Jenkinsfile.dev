@@ -81,7 +81,9 @@ pipeline {
                     az login --service-principal \
                         -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
                         --tenant "$ARM_TENANT_ID" --output none
-                    az acr login --name circleguarddevacr
+                    ACR_TOKEN=$(az acr login --name circleguarddevacr --expose-token --output tsv --query accessToken)
+                    echo "$ACR_TOKEN" | docker login circleguarddevacr.azurecr.io \
+                        -u 00000000-0000-0000-0000-000000000000 --password-stdin
                 '''
                 script {
                     def services = [
