@@ -16,9 +16,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   kubernetes_version  = "1.34"
 
   default_node_pool {
-    name       = "default"
-    node_count = var.node_count
-    vm_size    = var.vm_size
+    name                        = "default"
+    node_count                  = var.node_count
+    vm_size                     = var.vm_size
+    temporary_name_for_rotation = "temppool"
   }
 
   oidc_issuer_enabled       = true
