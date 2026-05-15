@@ -13,6 +13,13 @@ spec:
       labels:
         app: jenkins
     spec:
+      nodeSelector:
+        dedicated: jenkins
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "jenkins"
+          effect: "NoSchedule"
       securityContext:
         fsGroup: 1000
       containers:

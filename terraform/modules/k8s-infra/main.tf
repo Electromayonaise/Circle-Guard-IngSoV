@@ -62,10 +62,14 @@ resource "kubernetes_deployment" "postgres" {
   wait_for_rollout = false
   spec {
     replicas = 1
+    strategy {
+      type = "Recreate"
+    }
     selector { match_labels = { app = "circleguard-postgres" } }
     template {
       metadata { labels = { app = "circleguard-postgres" } }
       spec {
+        termination_grace_period_seconds = 60
         container {
           name  = "postgres"
           image = "postgres:16"
@@ -96,6 +100,29 @@ resource "kubernetes_deployment" "postgres" {
             value = "/var/lib/postgresql/data/pgdata"
           }
           port { container_port = 5432 }
+          lifecycle {
+            pre_stop {
+              exec {
+                command = ["su", "-", "postgres", "-c", "pg_ctl stop -m fast -D /var/lib/postgresql/data/pgdata"]
+              }
+            }
+          }
+          readiness_probe {
+            tcp_socket { port = "5432" }
+            initial_delay_seconds = 10
+            period_seconds        = 5
+            timeout_seconds       = 3
+          }
+          resources {
+            requests = {
+              memory = "256Mi"
+              cpu    = "100m"
+            }
+            limits = {
+              memory = "512Mi"
+              cpu    = "500m"
+            }
+          }
           volume_mount {
             name       = "postgres-data"
             mount_path = "/var/lib/postgresql/data"
@@ -103,11 +130,6 @@ resource "kubernetes_deployment" "postgres" {
           volume_mount {
             name       = "init-scripts"
             mount_path = "/docker-entrypoint-initdb.d"
-          }
-          readiness_probe {
-            exec { command = ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "circleguard_auth"] }
-            initial_delay_seconds = 10
-            period_seconds        = 5
           }
         }
         volume {
@@ -209,7 +231,7 @@ resource "kubernetes_deployment" "kafka" {
           port { container_port = 9092 }
           port { container_port = 9093 }
           readiness_probe {
-            tcp_socket { port = 9092 }
+            tcp_socket { port = "9092" }
             initial_delay_seconds = 20
             period_seconds        = 10
             timeout_seconds       = 5
@@ -272,7 +294,7 @@ resource "kubernetes_deployment" "redis" {
       spec {
         container {
           name  = "redis"
-          image = "redis:7-alpine"
+          image = "redis:7.2"
           port { container_port = 6379 }
           readiness_probe {
             exec { command = ["redis-cli", "ping"] }
@@ -300,6 +322,20 @@ resource "kubernetes_service" "redis" {
 }
 
 # ── Neo4j ────────────────────────────────────────────────────────────────────
+
+resource "kubernetes_persistent_volume_claim" "neo4j" {
+  metadata {
+    name      = "neo4j-pvc"
+    namespace = local.ns
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = { storage = "1Gi" }
+    }
+  }
+  wait_until_bound = false
+}
 
 resource "kubernetes_deployment" "neo4j" {
   metadata {
@@ -332,10 +368,18 @@ resource "kubernetes_deployment" "neo4j" {
           port { container_port = 7474 }
           port { container_port = 7687 }
           readiness_probe {
-            tcp_socket { port = 7687 }
+            tcp_socket { port = "7687" }
             initial_delay_seconds = 30
             period_seconds        = 10
           }
+          volume_mount {
+            name       = "neo4j-data"
+            mount_path = "/data"
+          }
+        }
+        volume {
+          name = "neo4j-data"
+          persistent_volume_claim { claim_name = kubernetes_persistent_volume_claim.neo4j.metadata[0].name }
         }
       }
     }

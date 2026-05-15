@@ -27,7 +27,10 @@ spec:
           image: neo4j:5
           env:
             - name: NEO4J_AUTH
-              value: none
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: NEO4J_AUTH
             - name: NEO4J_PLUGINS
               value: '["apoc"]'
           ports:
@@ -37,9 +40,8 @@ spec:
             - name: neo4j-data
               mountPath: /data
           readinessProbe:
-            httpGet:
-              path: /
-              port: 7474
+            tcpSocket:
+              port: 7687
             initialDelaySeconds: 30
             periodSeconds: 10
       volumes:
