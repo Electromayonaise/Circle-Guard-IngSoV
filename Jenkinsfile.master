@@ -88,7 +88,15 @@ pipeline {
                               -PexcludeIntegration --no-daemon'
             }
             post {
-                always { junit '**/build/test-results/test/*.xml' }
+                always {
+                    junit '**/build/test-results/test/*.xml'
+                    jacoco(
+                        execPattern: '**/build/jacoco/*.exec',
+                        classPattern: '**/build/classes/kotlin/main,**/build/classes/java/main',
+                        sourcePattern: '**/src/main/kotlin,**/src/main/java',
+                        minimumLineCoverage: '0'
+                    )
+                }
             }
         }
 
@@ -145,8 +153,10 @@ pipeline {
                                 -n ${NAMESPACE}
                         """
                     }
+                    def rolloutTimeouts = [promotion: '1500s']
                     parallel services.collectEntries { svc ->
-                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=900s" }]
+                        def t = rolloutTimeouts.getOrDefault(svc, '900s')
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=${t}" }]
                     }
                     services.each { svc ->
                         sh "kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true"

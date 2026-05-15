@@ -16,6 +16,10 @@ resource "kubernetes_secret" "circleguard" {
     NEO4J_PASSWORD    = var.neo4j_password
     JWT_SECRET        = var.jwt_secret
   }
+
+  lifecycle {
+    ignore_changes = [data]
+  }
 }
 
 # ── PostgreSQL ──────────────────────────────────────────────────────────────
