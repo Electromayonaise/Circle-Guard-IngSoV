@@ -185,7 +185,7 @@ pipeline {
                     rm -rf zap-reports && mkdir -p zap-reports && chmod 777 zap-reports
                     kubectl port-forward svc/gateway-service 8087:8087 -n ${NAMESPACE} &
                     sleep 8
-                    docker run --rm --network host \
+                    docker run --rm --network host --user root \
                         -v \$(pwd)/zap-reports:/zap/wrk/:rw \
                         zaproxy/zap-stable \
                         zap-baseline.py \
