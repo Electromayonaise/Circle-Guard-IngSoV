@@ -18,6 +18,7 @@ spec:
       labels:
         app: gateway-service
     spec:
+      serviceAccountName: gateway-service-sa
       containers:
         - name: gateway-service
           image: circleguarddevacr.azurecr.io/circleguard-gateway:latest
