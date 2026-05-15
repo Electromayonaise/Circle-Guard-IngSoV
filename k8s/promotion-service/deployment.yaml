@@ -18,6 +18,10 @@ spec:
       labels:
         app: promotion-service
     spec:
+      initContainers:
+        - name: wait-for-neo4j
+          image: busybox:1.36
+          command: ['sh', '-c', 'until wget -qO- http://circleguard-neo4j:7474/ 2>/dev/null | grep -q "neo4j_version"; do echo "waiting for neo4j"; sleep 5; done']
       containers:
         - name: promotion-service
           image: circleguarddevacr.azurecr.io/circleguard-promotion:latest

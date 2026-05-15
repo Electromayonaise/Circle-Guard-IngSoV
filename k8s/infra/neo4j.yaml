@@ -31,8 +31,6 @@ spec:
                 secretKeyRef:
                   name: circleguard-secrets
                   key: NEO4J_AUTH
-            - name: NEO4J_PLUGINS
-              value: '["apoc"]'
           ports:
             - containerPort: 7474
             - containerPort: 7687
@@ -40,10 +38,19 @@ spec:
             - name: neo4j-data
               mountPath: /data
           readinessProbe:
-            tcpSocket:
-              port: 7687
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            httpGet:
+              path: /
+              port: 7474
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 10
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
       volumes:
         - name: neo4j-data
           persistentVolumeClaim:

@@ -361,16 +361,26 @@ resource "kubernetes_deployment" "neo4j" {
               }
             }
           }
-          env {
-            name  = "NEO4J_PLUGINS"
-            value = "[\"apoc\"]"
-          }
           port { container_port = 7474 }
           port { container_port = 7687 }
           readiness_probe {
-            tcp_socket { port = "7687" }
-            initial_delay_seconds = 30
-            period_seconds        = 10
+            http_get {
+              path = "/"
+              port = "7474"
+            }
+            initial_delay_seconds = 60
+            period_seconds        = 15
+            failure_threshold     = 10
+          }
+          resources {
+            requests = {
+              memory = "512Mi"
+              cpu    = "100m"
+            }
+            limits = {
+              memory = "1Gi"
+              cpu    = "500m"
+            }
           }
           volume_mount {
             name       = "neo4j-data"
