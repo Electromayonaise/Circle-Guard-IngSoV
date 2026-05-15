@@ -424,13 +424,23 @@ resource "kubernetes_config_map" "circleguard_config" {
     namespace = local.ns
   }
   data = {
-    POSTGRES_HOST  = "circleguard-postgres"
-    POSTGRES_PORT  = "5432"
-    REDIS_HOST     = "circleguard-redis"
-    REDIS_PORT     = "6379"
-    KAFKA_BOOTSTRAP = "circleguard-kafka:9092"
-    NEO4J_URI      = "bolt://circleguard-neo4j:7687"
-    JWT_EXPIRATION = "86400000"
+    POSTGRES_HOST                   = "circleguard-postgres"
+    POSTGRES_PORT                   = "5432"
+    REDIS_HOST                      = "circleguard-redis"
+    REDIS_PORT                      = "6379"
+    KAFKA_BOOTSTRAP                 = "circleguard-kafka:9092"
+    NEO4J_URI                       = "bolt://circleguard-neo4j:7687"
+    LDAP_URL                        = "ldap://circleguard-ldap:389"
+    JWT_SECRET                      = "my-super-secret-dev-key-32-chars-long-12345678"
+    JWT_EXPIRATION                  = "3600000"
+    QR_SECRET                       = "my-qr-secret-key-for-dev-1234567890"
+    QR_EXPIRATION                   = "300000"
+    SERVICES_IDENTITY_URL           = "http://identity-service:8083"
+    CIRCLEGUARD_PROMOTION_SERVICE_URL = "http://promotion-service:8088"
+  }
+
+  lifecycle {
+    ignore_changes = [data]
   }
 
   depends_on = [
