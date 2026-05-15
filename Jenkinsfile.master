@@ -71,7 +71,7 @@ pipeline {
                               :services:circleguard-gateway-service:build \
                               :services:circleguard-dashboard-service:build \
                               :services:circleguard-file-service:build \
-                              -PexcludeIntegration --no-daemon'
+                              -x test -x jacocoTestCoverageVerification -PexcludeIntegration --no-daemon'
             }
         }
 
@@ -86,6 +86,15 @@ pipeline {
                               :services:circleguard-dashboard-service:test \
                               :services:circleguard-file-service:test \
                               -PexcludeIntegration --no-daemon'
+                sh './gradlew :services:circleguard-auth-service:jacocoTestCoverageVerification \
+                              :services:circleguard-identity-service:jacocoTestCoverageVerification \
+                              :services:circleguard-form-service:jacocoTestCoverageVerification \
+                              :services:circleguard-promotion-service:jacocoTestCoverageVerification \
+                              :services:circleguard-notification-service:jacocoTestCoverageVerification \
+                              :services:circleguard-gateway-service:jacocoTestCoverageVerification \
+                              :services:circleguard-dashboard-service:jacocoTestCoverageVerification \
+                              :services:circleguard-file-service:jacocoTestCoverageVerification \
+                              --no-daemon'
             }
             post {
                 always {
@@ -202,6 +211,42 @@ pipeline {
                         reportDir: 'tests/e2e',
                         reportFiles: 'e2e_master_report.html',
                         reportName: 'E2E Test Report - Master'
+                    ])
+                    sh "pkill -f 'kubectl port-forward' || true"
+                }
+            }
+        }
+
+        stage('OWASP ZAP Scan') {
+            steps {
+                sh """
+                    rm -rf zap-reports && mkdir -p zap-reports && chmod 777 zap-reports
+                    kubectl port-forward svc/gateway-service 8087:8087 -n ${NAMESPACE} &
+                    sleep 8
+                    docker volume create zap-workdir || true
+                    docker run --rm -v zap-workdir:/zap/wrk alpine chmod 777 /zap/wrk
+                    docker run --name zap-scan --network host \
+                        -v zap-workdir:/zap/wrk/:rw \
+                        zaproxy/zap-stable \
+                        zap-baseline.py \
+                        -t http://localhost:8087 \
+                        -r zap_report.html \
+                        -I || true
+                    docker cp zap-scan:/zap/wrk/zap_report.html zap-reports/ || true
+                    docker rm zap-scan || true
+                    docker volume rm zap-workdir || true
+                    ls -la zap-reports/
+                """
+            }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'zap-reports',
+                        reportFiles: 'zap_report.html',
+                        reportName: 'OWASP ZAP Security Report - Master'
                     ])
                     sh "pkill -f 'kubectl port-forward' || true"
                 }
