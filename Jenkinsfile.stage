@@ -182,7 +182,7 @@ pipeline {
         stage('OWASP ZAP Scan') {
             steps {
                 sh """
-                    mkdir -p zap-reports
+                    mkdir -p zap-reports && chmod 777 zap-reports
                     kubectl port-forward svc/gateway-service 8087:8087 -n ${NAMESPACE} &
                     sleep 8
                     docker run --rm --network host \
