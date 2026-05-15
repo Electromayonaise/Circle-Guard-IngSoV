@@ -55,4 +55,49 @@ class AnalyticsControllerTest {
                 .andExpect(jsonPath("$[0].hour").value("08:00"))
                 .andExpect(jsonPath("$[0].count").value(120));
     }
+
+    @Test
+    void shouldReturnCampusSummary() throws Exception {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("totalUsers", 5000);
+
+        Mockito.when(analyticsService.getCampusSummary()).thenReturn(summary);
+
+        mockMvc.perform(get("/api/v1/analytics/summary")
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalUsers").value(5000));
+    }
+
+    @Test
+    void shouldReturnDepartmentStats() throws Exception {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("department", "Engineering");
+        stats.put("greenCount", 300);
+
+        Mockito.when(analyticsService.getDepartmentStats("Engineering")).thenReturn(stats);
+
+        mockMvc.perform(get("/api/v1/analytics/department/Engineering")
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.department").value("Engineering"));
+    }
+
+    @Test
+    void shouldReturnTimeSeries() throws Exception {
+        List<Map<String, Object>> series = new ArrayList<>();
+        Map<String, Object> point = new HashMap<>();
+        point.put("period", "2024-01-01T08:00");
+        point.put("count", 50);
+        series.add(point);
+
+        Mockito.when(analyticsService.getTimeSeries("hourly", 24)).thenReturn(series);
+
+        mockMvc.perform(get("/api/v1/analytics/time-series")
+                .param("period", "hourly")
+                .param("limit", "24")
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].count").value(50));
+    }
 }
