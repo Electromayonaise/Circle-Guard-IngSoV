@@ -3,7 +3,13 @@ kind: Deployment
 metadata:
   name: gateway-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: gateway-service
@@ -14,24 +20,33 @@ spec:
     spec:
       containers:
         - name: gateway-service
-          image: localhost:5000/circleguard-gateway:latest
+          image: circleguarddevacr.azurecr.io/circleguard-gateway:latest
           ports:
             - containerPort: 8087
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_DATA_REDIS_HOST
               value: "$(REDIS_HOST)"
             - name: SPRING_DATA_REDIS_PORT
               value: "$(REDIS_PORT)"
-            - name: QR_SECRET
-              valueFrom:
-                configMapKeyRef:
-                  name: circleguard-config
-                  key: QR_SECRET
+          startupProbe:
+            tcpSocket:
+              port: 8087
+            failureThreshold: 120
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8087
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

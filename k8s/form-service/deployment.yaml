@@ -3,7 +3,13 @@ kind: Deployment
 metadata:
   name: form-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: form-service
@@ -14,25 +20,45 @@ spec:
     spec:
       containers:
         - name: form-service
-          image: localhost:5000/circleguard-form:latest
+          image: circleguarddevacr.azurecr.io/circleguard-form:latest
           ports:
             - containerPort: 8086
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/circleguard_form"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_USER
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_PASSWORD
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "$(KAFKA_BOOTSTRAP)"
+          startupProbe:
+            tcpSocket:
+              port: 8086
+            failureThreshold: 120
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8086
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

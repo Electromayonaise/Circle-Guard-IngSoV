@@ -3,7 +3,13 @@ kind: Deployment
 metadata:
   name: file-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: file-service
@@ -14,20 +20,35 @@ spec:
     spec:
       containers:
         - name: file-service
-          image: localhost:5000/circleguard-file:latest
+          image: circleguarddevacr.azurecr.io/circleguard-file:latest
           ports:
             - containerPort: 8085
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
+          env:
           volumeMounts:
             - name: uploads
               mountPath: /app/uploads
+          startupProbe:
+            tcpSocket:
+              port: 8085
+            failureThreshold: 120
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8085
-            initialDelaySeconds: 20
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       volumes:
         - name: uploads
           emptyDir: {}

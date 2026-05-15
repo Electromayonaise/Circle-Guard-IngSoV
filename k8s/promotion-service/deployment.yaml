@@ -3,7 +3,13 @@ kind: Deployment
 metadata:
   name: promotion-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: promotion-service
@@ -12,21 +18,33 @@ spec:
       labels:
         app: promotion-service
     spec:
+      initContainers:
+        - name: wait-for-neo4j
+          image: busybox:1.36
+          command: ['sh', '-c', 'until wget -qO- http://circleguard-neo4j:7474/ 2>/dev/null | grep -q "neo4j_version"; do echo "waiting for neo4j"; sleep 5; done']
       containers:
         - name: promotion-service
-          image: localhost:5000/circleguard-promotion:latest
+          image: circleguarddevacr.azurecr.io/circleguard-promotion:latest
           ports:
             - containerPort: 8088
           envFrom:
             - configMapRef:
                 name: circleguard-config
+            - secretRef:
+                name: circleguard-secrets
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/circleguard_promotion"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_USER
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: POSTGRES_PASSWORD
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
             - name: SPRING_NEO4J_URI
@@ -34,15 +52,30 @@ spec:
             - name: SPRING_NEO4J_AUTHENTICATION_USERNAME
               value: "neo4j"
             - name: SPRING_NEO4J_AUTHENTICATION_PASSWORD
-              value: "password"
+              valueFrom:
+                secretKeyRef:
+                  name: circleguard-secrets
+                  key: NEO4J_PASSWORD
             - name: SPRING_DATA_REDIS_HOST
               value: "$(REDIS_HOST)"
             - name: SPRING_DATA_REDIS_PORT
               value: "$(REDIS_PORT)"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "$(KAFKA_BOOTSTRAP)"
+          startupProbe:
+            tcpSocket:
+              port: 8088
+            failureThreshold: 120
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8088
-            initialDelaySeconds: 45
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "100m"
+            limits:
+              memory: "768Mi"
+              cpu: "1500m"

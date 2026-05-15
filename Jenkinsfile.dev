@@ -1,14 +1,24 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+        pollSCM('H/2 * * * *')
+    }
+
     environment {
-        REGISTRY                       = "localhost:5000"
+        REGISTRY                       = "circleguarddevacr.azurecr.io"
         NAMESPACE                      = "dev"
         SERVICES                       = "auth identity form promotion notification gateway dashboard file"
         IMAGE_TAG                      = "dev-${BUILD_NUMBER}"
+        AKS_RG                         = "circleguard-dev-rg"
+        AKS_CLUSTER                    = "circleguard-dev-aks"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
-        DOCKER_HOST                    = "unix:///var/run/docker.sock"
+        DOCKER_HOST                    = "tcp://localhost:2375"
+        ARM_CLIENT_ID                  = credentials('azure-client-id')
+        ARM_CLIENT_SECRET              = credentials('azure-client-secret')
+        ARM_TENANT_ID                  = credentials('azure-tenant-id')
     }
 
     stages {
@@ -68,6 +78,14 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    ACR_TOKEN=$(az acr login --name circleguarddevacr --expose-token --output tsv --query accessToken)
+                    echo "$ACR_TOKEN" | docker login circleguarddevacr.azurecr.io \
+                        -u 00000000-0000-0000-0000-000000000000 --password-stdin
+                '''
                 script {
                     def services = [
                         [name: 'auth',         dockerfile: 'docker/Dockerfile.auth'],
@@ -94,23 +112,33 @@ pipeline {
 
         stage('Deploy to Dev') {
             steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    az aks get-credentials \
+                        --resource-group "$AKS_RG" \
+                        --name "$AKS_CLUSTER" \
+                        --overwrite-existing
+                '''
                 script {
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
+                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
                             kubectl set image deployment/${svc}-service \
                                 ${svc}-service=${REGISTRY}/circleguard-${svc}:${IMAGE_TAG} \
-                                -n ${NAMESPACE} 2>/dev/null || \
-                            kubectl apply -f k8s/${svc}-service/ -n ${NAMESPACE}
+                                -n ${NAMESPACE}
                         """
                     }
-                    sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=120s"
-                    sh "kubectl rollout status deployment/form-service -n ${NAMESPACE} --timeout=120s"
-                    sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=180s"
-                    sh "kubectl rollout status deployment/gateway-service -n ${NAMESPACE} --timeout=120s"
-                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=120s"
-                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=60s"
+                    def rolloutTimeouts = [promotion: '1500s']
+                    def rolloutServices = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
+                    def rolloutJobs = rolloutServices.collectEntries { svc ->
+                        def t = rolloutTimeouts.getOrDefault(svc, '900s')
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=${t}" }]
+                    }
+                    parallel rolloutJobs
                 }
             }
         }
