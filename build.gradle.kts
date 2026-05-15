@@ -49,5 +49,25 @@ subprojects {
                 excludeTags("integration")
             }
         }
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    apply(plugin = "jacoco")
+
+    tasks.withType<JacocoReport>().configureEach {
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+        }
+    }
+
+    tasks.withType<JacocoCoverageVerification>().configureEach {
+        violationRules {
+            rule {
+                limit {
+                    minimum = "0.60".toBigDecimal()
+                }
+            }
+        }
     }
 }

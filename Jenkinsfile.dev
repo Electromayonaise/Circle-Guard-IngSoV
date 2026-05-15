@@ -72,6 +72,12 @@ pipeline {
             post {
                 always {
                     junit '**/build/test-results/test/*.xml'
+                    jacoco(
+                        execPattern: '**/build/jacoco/*.exec',
+                        classPattern: '**/build/classes/kotlin/main,**/build/classes/java/main',
+                        sourcePattern: '**/src/main/kotlin,**/src/main/java',
+                        minimumLineCoverage: '0'
+                    )
                 }
             }
         }
