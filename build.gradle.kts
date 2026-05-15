@@ -36,6 +36,8 @@ subprojects {
         "testRuntimeOnly"("com.h2database:h2")
     }
 
+    apply(plugin = "jacoco")
+
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict")
@@ -51,8 +53,6 @@ subprojects {
         }
         finalizedBy(tasks.named("jacocoTestReport"))
     }
-
-    apply(plugin = "jacoco")
 
     tasks.withType<JacocoReport>().configureEach {
         reports {
