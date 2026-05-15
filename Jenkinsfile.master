@@ -144,7 +144,11 @@ pipeline {
                                 ${svc}-service=${REGISTRY}/circleguard-${svc}:\$VERSION \
                                 -n ${NAMESPACE}
                         """
-                        sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=240s"
+                    }
+                    parallel services.collectEntries { svc ->
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=420s" }]
+                    }
+                    services.each { svc ->
                         sh "kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true"
                     }
                 }
