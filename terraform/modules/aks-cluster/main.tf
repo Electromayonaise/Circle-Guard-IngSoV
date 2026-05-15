@@ -38,7 +38,7 @@ resource "azurerm_kubernetes_cluster" "main" {
 resource "azurerm_kubernetes_cluster_node_pool" "jenkins" {
   name                  = "jenkins"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = var.vm_size
+  vm_size               = "Standard_D2s_v3"
   node_count            = 1
   node_taints           = ["dedicated=jenkins:NoSchedule"]
   node_labels           = { dedicated = "jenkins" }
