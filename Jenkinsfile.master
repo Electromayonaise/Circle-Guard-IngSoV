@@ -146,7 +146,7 @@ pipeline {
                         """
                     }
                     parallel services.collectEntries { svc ->
-                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=420s" }]
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=900s" }]
                     }
                     services.each { svc ->
                         sh "kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true"

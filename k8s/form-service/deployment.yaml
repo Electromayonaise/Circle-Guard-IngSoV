@@ -47,7 +47,7 @@ spec:
           startupProbe:
             tcpSocket:
               port: 8086
-            failureThreshold: 60
+            failureThreshold: 120
             periodSeconds: 10
           readinessProbe:
             tcpSocket:
