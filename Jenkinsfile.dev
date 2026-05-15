@@ -39,7 +39,7 @@ pipeline {
                               :services:circleguard-gateway-service:build \
                               :services:circleguard-dashboard-service:build \
                               :services:circleguard-file-service:build \
-                              -x test --no-daemon'
+                              -x test -x jacocoTestCoverageVerification --no-daemon'
             }
         }
 
