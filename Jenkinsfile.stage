@@ -186,6 +186,7 @@ pipeline {
                     kubectl port-forward svc/gateway-service 8087:8087 -n ${NAMESPACE} &
                     sleep 8
                     docker volume create zap-workdir || true
+                    docker run --rm -v zap-workdir:/zap/wrk alpine chmod 777 /zap/wrk
                     docker run --name zap-scan --network host \
                         -v zap-workdir:/zap/wrk/:rw \
                         zaproxy/zap-stable \
