@@ -18,6 +18,7 @@ spec:
       labels:
         app: identity-service
     spec:
+      serviceAccountName: identity-service-sa
       containers:
         - name: identity-service
           image: circleguarddevacr.azurecr.io/circleguard-identity:latest

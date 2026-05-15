@@ -95,8 +95,18 @@ pipeline {
                         --name "$AKS_CLUSTER" \
                         --overwrite-existing
                 '''
+                sh '''
+                    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+                    kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=120s || true
+                    kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=120s || true
+                    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+                    kubectl wait --for=condition=Available deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s || true
+                '''
+                sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
+                    sh "kubectl apply -f k8s/rbac.yaml -n ${NAMESPACE}"
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
+                    sh "kubectl apply -f k8s/cert-manager/certificate-gateway.yaml -n ${NAMESPACE} || true"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
