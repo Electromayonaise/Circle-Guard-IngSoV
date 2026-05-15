@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: notification-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
   strategy:
     type: RollingUpdate

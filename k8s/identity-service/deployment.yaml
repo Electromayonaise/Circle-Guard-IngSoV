@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: identity-service
 spec:
+  progressDeadlineSeconds: 1800
   replicas: 1
   strategy:
     type: RollingUpdate
