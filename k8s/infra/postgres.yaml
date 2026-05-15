@@ -30,6 +30,8 @@ metadata:
   name: circleguard-postgres
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: circleguard-postgres
@@ -38,6 +40,7 @@ spec:
       labels:
         app: circleguard-postgres
     spec:
+      terminationGracePeriodSeconds: 60
       containers:
         - name: postgres
           image: postgres:16
@@ -58,16 +61,28 @@ spec:
               value: /var/lib/postgresql/data/pgdata
           ports:
             - containerPort: 5432
+          lifecycle:
+            preStop:
+              exec:
+                command: ["su", "-", "postgres", "-c", "pg_ctl stop -m fast -D /var/lib/postgresql/data/pgdata"]
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
             - name: init-scripts
               mountPath: /docker-entrypoint-initdb.d
           readinessProbe:
-            exec:
-              command: [pg_isready, -U, $(POSTGRES_USER), -d, circleguard_auth]
+            tcpSocket:
+              port: 5432
             initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
