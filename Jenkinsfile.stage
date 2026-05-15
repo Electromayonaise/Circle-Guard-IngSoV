@@ -192,6 +192,8 @@ pipeline {
                         -t http://localhost:8087 \
                         -r zap_report.html \
                         -I || true
+                    echo "=== ZAP report directory contents ==="
+                    ls -la zap-reports/ || echo "Directory missing or empty"
                 """
             }
             post {
