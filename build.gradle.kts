@@ -62,12 +62,18 @@ subprojects {
     }
 
     tasks.withType<JacocoCoverageVerification>().configureEach {
+        dependsOn(tasks.withType<JacocoReport>())
         violationRules {
             rule {
                 limit {
+                    counter = "LINE"
                     minimum = "0.60".toBigDecimal()
                 }
             }
         }
+    }
+
+    tasks.named("check") {
+        dependsOn(tasks.withType<JacocoCoverageVerification>())
     }
 }
