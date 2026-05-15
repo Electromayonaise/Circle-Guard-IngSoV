@@ -1,9 +1,14 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: promotion-service
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: promotion-service
@@ -52,8 +57,20 @@ spec:
               value: "$(REDIS_PORT)"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "$(KAFKA_BOOTSTRAP)"
+          startupProbe:
+            tcpSocket:
+              port: 8088
+            failureThreshold: 60
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8088
-            initialDelaySeconds: 45
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

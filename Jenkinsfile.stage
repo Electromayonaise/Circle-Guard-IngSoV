@@ -14,7 +14,7 @@ pipeline {
         BASE_URL                       = "http://localhost"
         TESTCONTAINERS_RYUK_DISABLED   = "true"
         TESTCONTAINERS_HOST_OVERRIDE   = "172.17.0.1"
-        DOCKER_HOST                    = "unix:///var/run/docker.sock"
+        DOCKER_HOST                    = "tcp://localhost:2375"
         ARM_CLIENT_ID                  = credentials('azure-client-id')
         ARM_CLIENT_SECRET              = credentials('azure-client-secret')
         ARM_TENANT_ID                  = credentials('azure-tenant-id')
@@ -51,7 +51,9 @@ pipeline {
                     az login --service-principal \
                         -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
                         --tenant "$ARM_TENANT_ID" --output none
-                    az acr login --name circleguarddevacr
+                    ACR_TOKEN=$(az acr login --name circleguarddevacr --expose-token --output tsv --query accessToken)
+                    echo "$ACR_TOKEN" | docker login circleguarddevacr.azurecr.io \
+                        -u 00000000-0000-0000-0000-000000000000 --password-stdin
                 '''
                 script {
                     def services = [
