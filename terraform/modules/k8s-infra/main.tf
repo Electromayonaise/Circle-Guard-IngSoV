@@ -345,6 +345,9 @@ resource "kubernetes_deployment" "neo4j" {
   wait_for_rollout = false
   spec {
     replicas = 1
+    strategy {
+      type = "Recreate"
+    }
     selector { match_labels = { app = "circleguard-neo4j" } }
     template {
       metadata { labels = { app = "circleguard-neo4j" } }
