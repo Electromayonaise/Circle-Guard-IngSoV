@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: form-service
@@ -39,8 +39,20 @@ spec:
               value: "5"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "$(KAFKA_BOOTSTRAP)"
+          startupProbe:
+            tcpSocket:
+              port: 8086
+            failureThreshold: 60
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8086
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

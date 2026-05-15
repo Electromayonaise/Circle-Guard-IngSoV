@@ -37,8 +37,20 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
               value: "5"
+          startupProbe:
+            tcpSocket:
+              port: 8180
+            failureThreshold: 60
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8180
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

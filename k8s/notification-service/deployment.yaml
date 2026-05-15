@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-service
@@ -27,8 +27,20 @@ spec:
               value: "$(KAFKA_BOOTSTRAP)"
             - name: AUTH_API_URL
               value: "http://auth-service:8180"
+          startupProbe:
+            tcpSocket:
+              port: 8082
+            failureThreshold: 60
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8082
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

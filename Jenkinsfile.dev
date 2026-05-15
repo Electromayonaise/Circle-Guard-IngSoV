@@ -131,12 +131,11 @@ pipeline {
                                 -n ${NAMESPACE}
                         """
                     }
-                    sh "kubectl rollout status deployment/auth-service -n ${NAMESPACE} --timeout=300s"
-                    sh "kubectl rollout status deployment/form-service -n ${NAMESPACE} --timeout=300s"
-                    sh "kubectl rollout status deployment/promotion-service -n ${NAMESPACE} --timeout=300s"
-                    sh "kubectl rollout status deployment/gateway-service -n ${NAMESPACE} --timeout=240s"
-                    sh "kubectl rollout status deployment/dashboard-service -n ${NAMESPACE} --timeout=300s"
-                    sh "kubectl rollout status deployment/file-service -n ${NAMESPACE} --timeout=240s"
+                    def rolloutServices = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
+                    def rolloutJobs = rolloutServices.collectEntries { svc ->
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=420s" }]
+                    }
+                    parallel rolloutJobs
                 }
             }
         }

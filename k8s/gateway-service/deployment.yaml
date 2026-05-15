@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gateway-service
@@ -27,8 +27,20 @@ spec:
               value: "$(REDIS_HOST)"
             - name: SPRING_DATA_REDIS_PORT
               value: "$(REDIS_PORT)"
+          startupProbe:
+            tcpSocket:
+              port: 8087
+            failureThreshold: 60
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: 8087
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
