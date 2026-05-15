@@ -98,9 +98,11 @@ pipeline {
                                 -n ${NAMESPACE}
                         """
                     }
+                    def rolloutTimeouts = [promotion: '1500s']
                     def rolloutServices = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     parallel rolloutServices.collectEntries { svc ->
-                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=900s" }]
+                        def t = rolloutTimeouts.getOrDefault(svc, '900s')
+                        [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=${t}" }]
                     }
                 }
             }
