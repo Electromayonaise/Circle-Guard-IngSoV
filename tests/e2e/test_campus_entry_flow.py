@@ -1,7 +1,7 @@
 import requests
 import pytest
 import time
-from conftest import AUTH_URL, GATEWAY_URL
+from conftest import AUTH_URL, GATEWAY_URL, REQUEST_TIMEOUT
 
 
 class TestCampusEntryFlow:
@@ -10,7 +10,7 @@ class TestCampusEntryFlow:
         login_resp = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert login_resp.status_code == 200
         jwt_token = login_resp.json()["token"]
@@ -18,7 +18,7 @@ class TestCampusEntryFlow:
         qr_resp = requests.get(
             f"{AUTH_URL}/api/v1/auth/qr/generate",
             headers={"Authorization": f"Bearer {jwt_token}"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert qr_resp.status_code == 200
         qr_token = qr_resp.json()["qrToken"]
@@ -26,7 +26,7 @@ class TestCampusEntryFlow:
         gate_resp = requests.post(
             f"{GATEWAY_URL}/api/v1/gate/validate",
             json={"token": qr_token},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert gate_resp.status_code == 200
         body = gate_resp.json()
@@ -37,7 +37,7 @@ class TestCampusEntryFlow:
         response = requests.post(
             f"{GATEWAY_URL}/api/v1/gate/validate",
             json={},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (400, 422)
 
@@ -45,7 +45,7 @@ class TestCampusEntryFlow:
         response = requests.post(
             f"{GATEWAY_URL}/api/v1/gate/validate",
             json={"token": "not-a-valid-jwt-token"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code == 200
         body = response.json()

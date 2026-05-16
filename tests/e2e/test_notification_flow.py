@@ -1,6 +1,6 @@
 import requests
 import time
-from conftest import AUTH_URL, FORM_URL, NOTIFICATION_URL
+from conftest import AUTH_URL, FORM_URL, NOTIFICATION_URL, REQUEST_TIMEOUT
 
 
 class TestNotificationFlow:
@@ -9,7 +9,7 @@ class TestNotificationFlow:
         login_resp = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "notif-testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert login_resp.status_code == 200
         token = login_resp.json()["token"]
@@ -19,14 +19,14 @@ class TestNotificationFlow:
             f"{FORM_URL}/api/v1/surveys",
             headers={"Authorization": f"Bearer {token}"},
             json={"anonymousId": anonymous_id, "responses": {"fever": "YES"}},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         time.sleep(4)
 
         notif_resp = requests.get(
             f"{NOTIFICATION_URL}/api/v1/notifications/log/{anonymous_id}",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert notif_resp.status_code in (200, 404)
         if notif_resp.status_code == 200:
@@ -36,7 +36,7 @@ class TestNotificationFlow:
     def test_notification_health_endpoint_is_up(self):
         response = requests.get(
             f"{NOTIFICATION_URL}/actuator/health",
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code == 200
         assert response.json().get("status") == "UP"

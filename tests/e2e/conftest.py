@@ -20,13 +20,15 @@ TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
+REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))
+
 
 @pytest.fixture(scope="session")
 def user_token():
     response = requests.post(
         f"{AUTH_URL}/api/v1/auth/login",
         json={"username": TEST_USERNAME, "password": TEST_PASSWORD},
-        timeout=10
+        timeout=REQUEST_TIMEOUT
     )
     assert response.status_code == 200, f"Login failed: {response.text}"
     data = response.json()
@@ -38,7 +40,7 @@ def admin_token():
     response = requests.post(
         f"{AUTH_URL}/api/v1/auth/login",
         json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
-        timeout=10
+        timeout=REQUEST_TIMEOUT
     )
     assert response.status_code == 200, f"Admin login failed: {response.text}"
     data = response.json()

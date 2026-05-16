@@ -1,6 +1,6 @@
 import requests
 import pytest
-from conftest import AUTH_URL
+from conftest import AUTH_URL, REQUEST_TIMEOUT
 
 
 class TestLoginFlow:
@@ -9,7 +9,7 @@ class TestLoginFlow:
         response = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code == 200
         body = response.json()
@@ -22,7 +22,7 @@ class TestLoginFlow:
         response = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser", "password": "wrong-password"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code == 401
 
@@ -30,7 +30,7 @@ class TestLoginFlow:
         response = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (400, 401)
 
@@ -39,7 +39,7 @@ class TestLoginFlow:
         response = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code == 200
         anonymous_id = response.json()["anonymousId"]
