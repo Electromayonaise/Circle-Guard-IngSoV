@@ -3,7 +3,6 @@ pipeline {
 
     triggers {
         githubPush()
-        pollSCM('H/2 * * * *')
     }
 
     environment {
@@ -42,7 +41,15 @@ pipeline {
                               --no-daemon -PexcludeIntegration'
             }
             post {
-                always { junit '**/build/test-results/test/*.xml' }
+                always {
+                    junit '**/build/test-results/test/*.xml'
+                    jacoco(
+                        execPattern: '**/build/jacoco/*.exec',
+                        classPattern: '**/build/classes/kotlin/main,**/build/classes/java/main',
+                        sourcePattern: '**/src/main/kotlin,**/src/main/java',
+                        minimumLineCoverage: '0'
+                    )
+                }
             }
         }
 
@@ -87,8 +94,19 @@ pipeline {
                         --name "$AKS_CLUSTER" \
                         --overwrite-existing
                 '''
+                sh '''
+                    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+                    kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=120s || true
+                    kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=120s || true
+                    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+                    kubectl wait --for=condition=Available deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s || true
+                    kubectl wait --for=condition=complete job/ingress-nginx-admission-patch -n ingress-nginx --timeout=60s || true
+                '''
+                sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
+                    sh "kubectl apply -f k8s/rbac.yaml -n ${NAMESPACE}"
                     sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
+                    sh "kubectl apply -f k8s/cert-manager/certificate-gateway.yaml -n ${NAMESPACE} || true"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
                         sh """
@@ -98,6 +116,33 @@ pipeline {
                                 -n ${NAMESPACE}
                         """
                     }
+                    def gatewayIngress = """apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - gateway-${NAMESPACE}.circleguard.local
+      secretName: gateway-tls-secret
+  rules:
+    - host: gateway-${NAMESPACE}.circleguard.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-service
+                port:
+                  number: 8087
+"""
+                    writeFile file: 'gateway-ingress-tmp.yaml', text: gatewayIngress
+                    sh "kubectl apply -f gateway-ingress-tmp.yaml -n ${NAMESPACE}"
                     def rolloutTimeouts = [promotion: '1500s']
                     def rolloutServices = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     parallel rolloutServices.collectEntries { svc ->
@@ -105,6 +150,21 @@ pipeline {
                         [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=${t}" }]
                     }
                 }
+            }
+        }
+
+        stage('Deploy Observability') {
+            steps {
+                sh '''
+                    kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+                    kubectl apply -f k8s/observability/promtail/clusterrole.yaml
+                    kubectl apply -f k8s/observability/loki/ -n monitoring
+                    kubectl apply -f k8s/observability/zipkin/ -n monitoring
+                    kubectl apply -f k8s/observability/prometheus/ -n monitoring
+                    kubectl apply -f k8s/observability/grafana/ -n monitoring
+                    kubectl apply -f k8s/observability/promtail/configmap.yaml -n monitoring
+                    kubectl apply -f k8s/observability/promtail/daemonset.yaml -n monitoring
+                '''
             }
         }
 
@@ -165,6 +225,42 @@ pipeline {
                         reportDir: 'tests/e2e',
                         reportFiles: 'e2e_stage_report.html',
                         reportName: 'E2E Test Report - Stage'
+                    ])
+                    sh "pkill -f 'kubectl port-forward' || true"
+                }
+            }
+        }
+
+        stage('OWASP ZAP Scan') {
+            steps {
+                sh """
+                    rm -rf zap-reports && mkdir -p zap-reports && chmod 777 zap-reports
+                    kubectl port-forward svc/gateway-service 8087:8087 -n ${NAMESPACE} &
+                    sleep 8
+                    docker volume create zap-workdir || true
+                    docker run --rm -v zap-workdir:/zap/wrk alpine chmod 777 /zap/wrk
+                    docker run --name zap-scan --network host \
+                        -v zap-workdir:/zap/wrk/:rw \
+                        zaproxy/zap-stable \
+                        zap-baseline.py \
+                        -t http://localhost:8087 \
+                        -r zap_report.html \
+                        -I || true
+                    docker cp zap-scan:/zap/wrk/zap_report.html zap-reports/ || true
+                    docker rm zap-scan || true
+                    docker volume rm zap-workdir || true
+                    ls -la zap-reports/
+                """
+            }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'zap-reports',
+                        reportFiles: 'zap_report.html',
+                        reportName: 'OWASP ZAP Security Report - Stage'
                     ])
                     sh "pkill -f 'kubectl port-forward' || true"
                 }

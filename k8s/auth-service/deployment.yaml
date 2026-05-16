@@ -18,6 +18,7 @@ spec:
       labels:
         app: auth-service
     spec:
+      serviceAccountName: auth-service-sa
       containers:
         - name: auth-service
           image: circleguarddevacr.azurecr.io/circleguard-auth:latest

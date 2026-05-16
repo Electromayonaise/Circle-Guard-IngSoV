@@ -36,4 +36,20 @@ public class GateControllerTest {
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.status").value("GREEN"));
     }
+
+    @Test
+    void shouldReturnBadRequestWhenTokenMissing() throws Exception {
+        mockMvc.perform(post("/api/v1/gate/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenTokenBlank() throws Exception {
+        mockMvc.perform(post("/api/v1/gate/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"\"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

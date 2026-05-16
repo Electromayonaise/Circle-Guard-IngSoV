@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: circleguard-dev
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets:
+              - auth-service.dev.svc.cluster.local:8180
+              - identity-service.dev.svc.cluster.local:8083
+              - form-service.dev.svc.cluster.local:8086
+              - promotion-service.dev.svc.cluster.local:8088
+              - notification-service.dev.svc.cluster.local:8082
+              - gateway-service.dev.svc.cluster.local:8087
+              - dashboard-service.dev.svc.cluster.local:8084
+              - file-service.dev.svc.cluster.local:8085
+            labels:
+              namespace: dev
+              environment: dev
+
+      - job_name: circleguard-stage
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets:
+              - auth-service.stage.svc.cluster.local:8180
+              - identity-service.stage.svc.cluster.local:8083
+              - form-service.stage.svc.cluster.local:8086
+              - promotion-service.stage.svc.cluster.local:8088
+              - notification-service.stage.svc.cluster.local:8082
+              - gateway-service.stage.svc.cluster.local:8087
+              - dashboard-service.stage.svc.cluster.local:8084
+              - file-service.stage.svc.cluster.local:8085
+            labels:
+              namespace: stage
+              environment: stage
+
+      - job_name: circleguard-master
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets:
+              - auth-service.master.svc.cluster.local:8180
+              - identity-service.master.svc.cluster.local:8083
+              - form-service.master.svc.cluster.local:8086
+              - promotion-service.master.svc.cluster.local:8088
+              - notification-service.master.svc.cluster.local:8082
+              - gateway-service.master.svc.cluster.local:8087
+              - dashboard-service.master.svc.cluster.local:8084
+              - file-service.master.svc.cluster.local:8085
+            labels:
+              namespace: master
+              environment: master
+
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090

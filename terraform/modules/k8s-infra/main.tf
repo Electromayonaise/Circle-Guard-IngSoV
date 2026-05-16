@@ -442,8 +442,12 @@ resource "kubernetes_config_map" "circleguard_config" {
     JWT_EXPIRATION                  = "3600000"
     QR_SECRET                       = "my-qr-secret-key-for-dev-1234567890"
     QR_EXPIRATION                   = "300000"
-    SERVICES_IDENTITY_URL           = "http://identity-service:8083"
-    CIRCLEGUARD_PROMOTION_SERVICE_URL = "http://promotion-service:8088"
+    SERVICES_IDENTITY_URL                    = "http://identity-service:8083"
+    CIRCLEGUARD_PROMOTION_SERVICE_URL        = "http://promotion-service:8088"
+    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE = "health,prometheus,info"
+    MANAGEMENT_HEALTH_PROBES_ENABLED         = "true"
+    MANAGEMENT_ZIPKIN_TRACING_ENDPOINT       = "http://zipkin.monitoring.svc.cluster.local:9411/api/v2/spans"
+    MANAGEMENT_TRACING_SAMPLING_PROBABILITY  = "1.0"
   }
 
   lifecycle {

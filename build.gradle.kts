@@ -36,6 +36,8 @@ subprojects {
         "testRuntimeOnly"("com.h2database:h2")
     }
 
+    apply(plugin = "jacoco")
+
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict")
@@ -49,5 +51,29 @@ subprojects {
                 excludeTags("integration")
             }
         }
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    tasks.withType<JacocoReport>().configureEach {
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+        }
+    }
+
+    tasks.withType<JacocoCoverageVerification>().configureEach {
+        dependsOn(tasks.withType<JacocoReport>())
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = "0.60".toBigDecimal()
+                }
+            }
+        }
+    }
+
+    tasks.named("check") {
+        dependsOn(tasks.withType<JacocoCoverageVerification>())
     }
 }

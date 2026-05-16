@@ -18,6 +18,7 @@ spec:
       labels:
         app: form-service
     spec:
+      serviceAccountName: form-service-sa
       containers:
         - name: form-service
           image: circleguarddevacr.azurecr.io/circleguard-form:latest

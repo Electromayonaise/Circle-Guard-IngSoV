@@ -18,6 +18,7 @@ spec:
       labels:
         app: dashboard-service
     spec:
+      serviceAccountName: dashboard-service-sa
       containers:
         - name: dashboard-service
           image: circleguarddevacr.azurecr.io/circleguard-dashboard:latest
