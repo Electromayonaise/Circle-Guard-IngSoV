@@ -393,8 +393,19 @@ spec:
                         git config user.email "jenkins@circleguard.local"
                         git config user.name "Jenkins CI"
                         git remote set-url origin https://\${GIT_USER}:\${GIT_TOKEN}@github.com/Electromayonaise/Circle-Guard-IngSoV.git
-                        git tag -a ${env.VERSION} -m "Release ${env.VERSION} -- Build #${BUILD_NUMBER}"
-                        git push origin ${env.VERSION}
+                        git tag -a ${env.VERSION} -m "Release ${env.VERSION} -- Build #${BUILD_NUMBER}" || true
+                        git push origin ${env.VERSION} || true
+                        python3 -c "
+import json, sys
+notes = open('RELEASE_NOTES.md').read() if __import__('os').path.exists('RELEASE_NOTES.md') else 'Release ${env.VERSION}'
+payload = {'tag_name': '${env.VERSION}', 'name': '${env.VERSION}', 'body': notes, 'draft': False, 'prerelease': False}
+print(json.dumps(payload))
+" > /tmp/release_payload.json
+                        curl -s -X POST \
+                            -H "Authorization: token \${GIT_TOKEN}" \
+                            -H "Content-Type: application/json" \
+                            https://api.github.com/repos/Electromayonaise/Circle-Guard-IngSoV/releases \
+                            -d @/tmp/release_payload.json
                     """
                 }
             }
