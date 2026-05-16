@@ -1,5 +1,5 @@
 import requests
-from conftest import AUTH_URL, PROMOTION_URL
+from conftest import AUTH_URL, PROMOTION_URL, REQUEST_TIMEOUT
 
 
 class TestAdminCorrectionFlow:
@@ -11,7 +11,7 @@ class TestAdminCorrectionFlow:
             f"{PROMOTION_URL}/api/v1/health/report",
             headers=admin_headers,
             json={"anonymousId": anonymous_id, "status": "ACTIVE", "adminOverride": True},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (200, 202, 204)
 
@@ -20,6 +20,6 @@ class TestAdminCorrectionFlow:
             f"{PROMOTION_URL}/api/v1/health/report",
             headers=auth_headers,
             json={"anonymousId": "some-user", "status": "ACTIVE"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (401, 403)

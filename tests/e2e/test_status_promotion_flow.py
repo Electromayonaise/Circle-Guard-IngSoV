@@ -1,6 +1,6 @@
 import requests
 import time
-from conftest import AUTH_URL, FORM_URL, PROMOTION_URL
+from conftest import AUTH_URL, FORM_URL, PROMOTION_URL, REQUEST_TIMEOUT
 
 
 class TestStatusPromotionFlow:
@@ -9,7 +9,7 @@ class TestStatusPromotionFlow:
         login_resp = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "symptom-testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert login_resp.status_code == 200
         token = login_resp.json()["token"]
@@ -19,7 +19,7 @@ class TestStatusPromotionFlow:
             f"{FORM_URL}/api/v1/surveys",
             headers={"Authorization": f"Bearer {token}"},
             json={"anonymousId": anonymous_id, "responses": {"fever": "YES", "cough": "YES"}},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert survey_resp.status_code in (200, 201, 202)
 
@@ -28,7 +28,7 @@ class TestStatusPromotionFlow:
         status_resp = requests.get(
             f"{PROMOTION_URL}/api/v1/health/status/{anonymous_id}",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert status_resp.status_code == 200
         assert status_resp.json().get("status") == "SUSPECT"
@@ -37,7 +37,7 @@ class TestStatusPromotionFlow:
         login_resp = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "healthy-testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert login_resp.status_code == 200
         token = login_resp.json()["token"]
@@ -47,7 +47,7 @@ class TestStatusPromotionFlow:
             f"{FORM_URL}/api/v1/surveys",
             headers={"Authorization": f"Bearer {token}"},
             json={"anonymousId": anonymous_id, "responses": {"fever": "NO", "cough": "NO"}},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
 
         time.sleep(10)
@@ -55,7 +55,7 @@ class TestStatusPromotionFlow:
         status_resp = requests.get(
             f"{PROMOTION_URL}/api/v1/health/status/{anonymous_id}",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert status_resp.status_code == 200
         assert status_resp.json().get("status") in ("ACTIVE", "CLEAR", None)

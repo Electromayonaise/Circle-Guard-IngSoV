@@ -1,6 +1,6 @@
 import requests
 import pytest
-from conftest import AUTH_URL, FORM_URL
+from conftest import AUTH_URL, FORM_URL, REQUEST_TIMEOUT
 
 
 class TestHealthSurveyFlow:
@@ -9,7 +9,7 @@ class TestHealthSurveyFlow:
         resp = requests.post(
             f"{AUTH_URL}/api/v1/auth/login",
             json={"username": "testuser", "password": "password123"},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         data = resp.json()
         return data["token"], data["anonymousId"]
@@ -24,7 +24,7 @@ class TestHealthSurveyFlow:
                 "anonymousId": anonymous_id,
                 "responses": {"fever": "NO", "cough": "NO", "shortness_of_breath": "NO"}
             },
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (200, 201, 202)
 
@@ -32,7 +32,7 @@ class TestHealthSurveyFlow:
         response = requests.post(
             f"{FORM_URL}/api/v1/surveys",
             json={"anonymousId": "some-id", "responses": {}},
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (400, 401)
 
@@ -46,6 +46,6 @@ class TestHealthSurveyFlow:
                 "anonymousId": anonymous_id,
                 "responses": {"fever": "YES", "cough": "YES"}
             },
-            timeout=10
+            timeout=REQUEST_TIMEOUT
         )
         assert response.status_code in (200, 201, 202)
