@@ -205,9 +205,6 @@ spec:
                         def t = rolloutTimeouts.getOrDefault(svc, '900s')
                         [(svc): { sh "kubectl rollout status deployment/${svc}-service -n ${NAMESPACE} --timeout=${t}" }]
                     }
-                    services.each { svc ->
-                        sh "kubectl scale deployment/${svc}-service --replicas=2 -n ${NAMESPACE} || true"
-                    }
                 }
             }
         }
