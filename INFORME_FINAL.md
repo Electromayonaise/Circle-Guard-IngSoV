@@ -22,14 +22,14 @@ Se implementó un flujo inspirado en GitFlow con tres niveles de ramas, document
 | Rama | Propósito | Pipeline asociado |
 |------|-----------|-------------------|
 | `main` | Código estable y taggeado. Cada merge dispara el pipeline de master con gates completos. | `Jenkinsfile.master` |
-| `develop` | Rama de integración. Cada push dispara dev y stage en paralelo sobre el mismo commit. | `Jenkinsfile.dev` + `Jenkinsfile.stage` |
-| `feature/<N>-<nombre>` | Una rama por issue. El número corresponde al issue de GitHub. | `Jenkinsfile.dev` |
+| `develop` | Rama de integración. Cada push dispara el pipeline de stage. | `Jenkinsfile.stage` |
+| `feature/<N>-<nombre>` | Una rama por issue. El número corresponde al issue de GitHub. Cada push dispara el pipeline de dev. | `Jenkinsfile.dev` |
 
 ```
 feature/X  ──PR──▶  develop  ──PR──▶  main
-                       │                 │
-               Pipeline Dev          Pipeline Master
-               Pipeline Stage        (producción)
+    │                  │                │
+Pipeline Dev      Pipeline Stage   Pipeline Master
+(namespace dev)  (namespace stage) (namespace master)
 ```
 
 Las ramas activas reflejan la estructura GitFlow: `main` (producción), `develop` (integración continua) y ramas `feature/N-nombre` por issue numerado según el tablero Kanban.

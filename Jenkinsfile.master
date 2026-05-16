@@ -391,7 +391,7 @@ spec:
 
         stage('Tag Release') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: '6709cddd-1063-4f98-b2a4-d0ddd58b4779', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     sh """
                         git config user.email "jenkins@circleguard.local"
                         git config user.name "Jenkins CI"
