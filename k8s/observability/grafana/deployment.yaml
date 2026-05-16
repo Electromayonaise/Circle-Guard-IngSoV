@@ -35,6 +35,8 @@ spec:
             - name: dashboard-business
               mountPath: /var/lib/grafana/dashboards/business-dashboard.json
               subPath: business-dashboard.json
+            - name: alerting
+              mountPath: /etc/grafana/provisioning/alerting
             - name: storage
               mountPath: /var/lib/grafana
           resources:
@@ -63,6 +65,9 @@ spec:
         - name: dashboard-business
           configMap:
             name: grafana-dashboard-business
+        - name: alerting
+          configMap:
+            name: grafana-alerting
         - name: storage
           emptyDir: {}
 ---

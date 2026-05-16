@@ -15,10 +15,11 @@ La infraestructura se organiza en cuatro módulos reutilizables invocados desde 
 
 | Módulo | Aprovisiona |
 |---|---|
-| `aks-cluster` | Resource Group de Azure + clúster AKS con 2 nodos |
+| `aks-cluster` | Resource Group de Azure + clúster AKS (node pool default + node pool jenkins) |
 | `acr` | Azure Container Registry + rol AcrPull para AKS |
 | `k8s-namespace` | Namespaces de Kubernetes (`dev`, `stage`, `master`) |
 | `k8s-infra` | Stack de infra por namespace (PostgreSQL, Kafka, Redis, Neo4j, Secrets, ConfigMap) |
+| `k8s-service` | Módulo auxiliar para despliegue de microservicios (usado por Jenkins, no desde root) |
 
 ---
 
@@ -48,7 +49,8 @@ graph LR
         RG["Resource Group<br/><i>circleguard-dev-rg</i>"]
 
         subgraph AKS_BOX["Clúster AKS — circleguard-dev-aks"]
-            NP["Node Pool por defecto<br/>2 nodos · Standard_B2ms<br/>Kubernetes 1.34 (fijado)"]
+            NP["Node Pool default<br/>2 nodos · Standard_B2s<br/>Kubernetes 1.34 (fijado)"]
+            NP_J["Node Pool jenkins<br/>1 nodo · Standard_D2s_v3<br/>Taint: dedicated=jenkins:NoSchedule"]
             OID["OIDC Issuer habilitado<br/>Workload Identity habilitado"]
             ID["Identidad SystemAssigned<br/>kubelet_identity_id"]
         end

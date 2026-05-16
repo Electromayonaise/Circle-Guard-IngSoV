@@ -12,12 +12,84 @@ data:
       "links": [],
       "panels": [
         {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2}, "unit": "reqps"},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+          "id": 4,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(http_server_requests_seconds_count{job=~\"circleguard-.*\", uri=\"/api/v1/gate/validate\"}[5m]))",
+              "legendFormat": "QR Validations/s",
+              "refId": "A"
+            }
+          ],
+          "title": "QR Validations Rate (Campus Entries)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2}, "unit": "reqps"},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+          "id": 5,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(http_server_requests_seconds_count{job=~\"circleguard-.*\", uri=\"/api/v1/identities/map\"}[5m]))",
+              "legendFormat": "Identity Mappings/s",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(http_server_requests_seconds_count{job=~\"circleguard-.*\", uri=\"/api/v1/identities/visitor\"}[5m]))",
+              "legendFormat": "Visitor Registrations/s",
+              "refId": "B"
+            }
+          ],
+          "title": "Identity Operations Rate (Privacy Vault)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2}, "unit": "reqps"},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+          "id": 6,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(http_server_requests_seconds_count{job=~\"circleguard-.*\", uri=~\"/api/v1/surveys.*|/api/v1/forms.*\"}[5m]))",
+              "legendFormat": "Health Surveys/s",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(http_server_requests_seconds_count{job=~\"circleguard-.*\", uri=~\"/api/v1/promotions.*|/api/v1/status.*\"}[5m]))",
+              "legendFormat": "Status Promotions/s",
+              "refId": "B"
+            }
+          ],
+          "title": "Health Workflow Rate (Surveys & Promotions)",
+          "type": "timeseries"
+        },
+        {
           "datasource": {"type": "loki", "uid": "loki"},
           "fieldConfig": {
             "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 1}},
             "overrides": []
           },
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
           "id": 1,
           "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
           "targets": [
@@ -37,7 +109,7 @@ data:
             "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 1}},
             "overrides": []
           },
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
           "id": 2,
           "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
           "targets": [
@@ -53,7 +125,7 @@ data:
         },
         {
           "datasource": {"type": "loki", "uid": "loki"},
-          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
           "id": 3,
           "options": {
             "dedupStrategy": "none",
@@ -84,5 +156,5 @@ data:
       "timezone": "browser",
       "title": "CircleGuard - Business Dashboard",
       "uid": "circleguard-business",
-      "version": 1
+      "version": 2
     }
