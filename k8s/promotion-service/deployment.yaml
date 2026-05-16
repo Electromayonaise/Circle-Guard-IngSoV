@@ -68,13 +68,6 @@ spec:
               port: 8088
             failureThreshold: 120
             periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8088
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: 8088
