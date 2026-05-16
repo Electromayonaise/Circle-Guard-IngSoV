@@ -157,6 +157,7 @@ pipeline {
                     kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=120s || true
                     kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
                     kubectl wait --for=condition=Available deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s || true
+                    kubectl wait --for=condition=complete job/ingress-nginx-admission-patch -n ingress-nginx --timeout=60s || true
                 '''
                 sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
