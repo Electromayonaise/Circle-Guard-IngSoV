@@ -21,6 +21,11 @@ spec:
           image: grafana/promtail:2.9.4
           args:
             - -config.file=/etc/promtail/promtail.yaml
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           ports:
             - containerPort: 9080
           volumeMounts:
