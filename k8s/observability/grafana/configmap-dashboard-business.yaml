@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-business
+data:
+  business-dashboard.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "fieldConfig": {
+            "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 1}},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "loki"},
+              "expr": "sum(rate({namespace=~\"dev|stage|master\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Log Rate per Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "fieldConfig": {
+            "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 1}},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "id": 2,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "loki"},
+              "expr": "sum(count_over_time({namespace=~\"dev|stage|master\"} |= \"ERROR\" [5m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Error Log Count per Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+          "id": 3,
+          "options": {
+            "dedupStrategy": "none",
+            "enableLogDetails": true,
+            "prettifyLogMessage": false,
+            "showCommonLabels": false,
+            "showLabels": false,
+            "showTime": true,
+            "sortOrder": "Descending",
+            "wrapLogMessage": false
+          },
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "loki"},
+              "expr": "{namespace=~\"dev|stage|master\"} |= \"ERROR\"",
+              "refId": "A"
+            }
+          ],
+          "title": "Recent Error Logs",
+          "type": "logs"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "tags": ["circleguard", "business"],
+      "time": {"from": "now-1h", "to": "now"},
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "CircleGuard - Business Dashboard",
+      "uid": "circleguard-business",
+      "version": 1
+    }

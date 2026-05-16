@@ -51,8 +51,16 @@ spec:
               port: 8086
             failureThreshold: 120
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8086
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health/readiness
               port: 8086
             initialDelaySeconds: 5
             periodSeconds: 10

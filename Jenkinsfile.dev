@@ -186,6 +186,21 @@ spec:
             }
         }
 
+        stage('Deploy Observability') {
+            steps {
+                sh '''
+                    kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+                    kubectl apply -f k8s/observability/promtail/clusterrole.yaml
+                    kubectl apply -f k8s/observability/loki/ -n monitoring
+                    kubectl apply -f k8s/observability/zipkin/ -n monitoring
+                    kubectl apply -f k8s/observability/prometheus/ -n monitoring
+                    kubectl apply -f k8s/observability/grafana/ -n monitoring
+                    kubectl apply -f k8s/observability/promtail/configmap.yaml -n monitoring
+                    kubectl apply -f k8s/observability/promtail/daemonset.yaml -n monitoring
+                '''
+            }
+        }
+
         stage('Smoke Tests') {
             steps {
                 script {
