@@ -173,6 +173,33 @@ pipeline {
                                 -n ${NAMESPACE}
                         """
                     }
+                    def gatewayIngress = """apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - gateway-${NAMESPACE}.circleguard.local
+      secretName: gateway-tls-secret
+  rules:
+    - host: gateway-${NAMESPACE}.circleguard.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-service
+                port:
+                  number: 8087
+"""
+                    writeFile file: 'gateway-ingress-tmp.yaml', text: gatewayIngress
+                    sh "kubectl apply -f gateway-ingress-tmp.yaml -n ${NAMESPACE}"
                     def rolloutTimeouts = [promotion: '1500s']
                     parallel services.collectEntries { svc ->
                         def t = rolloutTimeouts.getOrDefault(svc, '900s')

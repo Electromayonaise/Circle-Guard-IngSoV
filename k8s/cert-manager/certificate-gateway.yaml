@@ -9,4 +9,4 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - gateway-service
-    - gateway.circleguard.local
+    - "*.circleguard.local"
