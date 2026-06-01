@@ -461,3 +461,40 @@ resource "kubernetes_config_map" "circleguard_config" {
     kubernetes_deployment.neo4j,
   ]
 }
+
+# ── Gateway Ingress ───────────────────────────────────────────────────────────
+
+resource "kubernetes_ingress_v1" "gateway" {
+  metadata {
+    name      = "gateway-ingress"
+    namespace = local.ns
+    annotations = {
+      "nginx.ingress.kubernetes.io/ssl-redirect"       = "true"
+      "nginx.ingress.kubernetes.io/force-ssl-redirect" = "true"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    rule {
+      host = "gateway-${local.ns}.circleguard.local"
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "gateway-service"
+              port {
+                number = 8087
+              }
+            }
+          }
+        }
+      }
+    }
+    tls {
+      hosts       = ["gateway-${local.ns}.circleguard.local"]
+      secret_name = "gateway-tls-secret"
+    }
+  }
+}

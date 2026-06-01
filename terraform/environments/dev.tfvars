@@ -4,5 +4,7 @@ cluster_name        = "circleguard-dev-aks"
 acr_name            = "circleguarddevacr"
 location            = "eastus"
 node_count          = 2
-vm_size             = "Standard_B2s"
+vm_size             = "Standard_B2ms"
 namespaces          = ["dev"]
+
+deploy_shared_infra = true

@@ -36,6 +36,71 @@ module "infra" {
   neo4j_password    = var.neo4j_password
   jwt_secret        = var.jwt_secret
 
-  depends_on = [module.namespaces]
+  depends_on = [module.namespaces, helm_release.cert_manager, helm_release.ingress_nginx]
+}
+
+# ── Shared cluster-wide infrastructure (primary workspace only) ───────────────
+
+resource "helm_release" "cert_manager" {
+  count            = var.deploy_shared_infra ? 1 : 0
+  name             = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
+  version          = "v1.14.5"
+  namespace        = "cert-manager"
+  create_namespace = true
+
+  set {
+    name  = "installCRDs"
+    value = "true"
+  }
+
+  depends_on = [module.aks]
+}
+
+resource "helm_release" "ingress_nginx" {
+  count            = var.deploy_shared_infra ? 1 : 0
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  version          = "4.10.1"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+
+  depends_on = [module.aks]
+}
+
+resource "kubernetes_manifest" "cluster_issuer_selfsigned" {
+  count = var.deploy_shared_infra ? 1 : 0
+  manifest = {
+    apiVersion = "cert-manager.io/v1"
+    kind       = "ClusterIssuer"
+    metadata = {
+      name = "selfsigned-issuer"
+    }
+    spec = {
+      selfSigned = {}
+    }
+  }
+  depends_on = [helm_release.cert_manager]
+}
+
+module "monitoring" {
+  count  = var.deploy_shared_infra ? 1 : 0
+  source = "./modules/monitoring"
+
+  grafana_admin_password = var.grafana_admin_password
+
+  depends_on = [module.aks]
+}
+
+module "jenkins" {
+  count  = var.deploy_shared_infra ? 1 : 0
+  source = "./modules/jenkins"
+
+  acr_login_server  = module.acr.login_server
+  jenkins_image_tag = var.jenkins_image_tag
+
+  depends_on = [module.aks, module.acr]
 }
 
