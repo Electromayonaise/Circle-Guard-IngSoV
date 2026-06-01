@@ -1,53 +1,30 @@
 package com.circleguard.gateway.service;
 
+import com.circleguard.gateway.client.PromotionClient;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.security.Key;
-import java.util.Date;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Testcontainers
 @Tag("integration")
 class QrStatusCacheIntegrationTest {
 
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.2"))
-            .withExposedPorts(6379)
-            .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1));
-
-    @DynamicPropertySource
-    static void configureRedis(DynamicPropertyRegistry registry) {
-        String containerIp = redis.getContainerInfo()
-                .getNetworkSettings()
-                .getNetworks()
-                .get("bridge")
-                .getIpAddress();
-        registry.add("spring.data.redis.host", () -> containerIp);
-        registry.add("spring.data.redis.port", () -> 6379);
-    }
+    @MockBean
+    private PromotionClient promotionClient;
 
     @Autowired
     private QrValidationService qrValidationService;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
 
     private static final String SECRET = "my-qr-secret-key-for-dev-1234567890";
 
@@ -55,15 +32,15 @@ class QrStatusCacheIntegrationTest {
         Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
         return Jwts.builder()
                 .setSubject(anonymousId)
-                .setExpiration(new Date(System.currentTimeMillis() + 300000))
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + 300000))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     @Test
-    void shouldReturnGreenStatusForClearUserFromRedis() {
+    void shouldReturnGreenStatusForClearUser() {
         String anonymousId = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set("user:status:" + anonymousId, "CLEAR");
+        Mockito.when(promotionClient.getHealthStatus(anonymousId)).thenReturn("CLEAR");
 
         QrValidationService.ValidationResult result = qrValidationService.validateToken(buildToken(anonymousId));
 
@@ -72,9 +49,9 @@ class QrStatusCacheIntegrationTest {
     }
 
     @Test
-    void shouldReturnRedStatusForContagiedUserFromRedis() {
+    void shouldReturnRedStatusForContagiedUser() {
         String anonymousId = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set("user:status:" + anonymousId, "CONTAGIED");
+        Mockito.when(promotionClient.getHealthStatus(anonymousId)).thenReturn("CONTAGIED");
 
         QrValidationService.ValidationResult result = qrValidationService.validateToken(buildToken(anonymousId));
 

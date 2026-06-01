@@ -1,2 +1,11 @@
 qr:
   secret: "my-qr-secret-key-for-dev-1234567890"
+
+services:
+  promotion-url: http://localhost:8099
+
+resilience4j:
+  retry:
+    instances:
+      promotionService:
+        waitDuration: 10ms
