@@ -67,6 +67,24 @@ resource "helm_release" "ingress_nginx" {
   namespace        = "ingress-nginx"
   create_namespace = true
 
+  # Allow scheduling on the Jenkins node when default nodes are resource-saturated
+  set {
+    name  = "controller.tolerations[0].key"
+    value = "dedicated"
+  }
+  set {
+    name  = "controller.tolerations[0].operator"
+    value = "Equal"
+  }
+  set {
+    name  = "controller.tolerations[0].value"
+    value = "jenkins"
+  }
+  set {
+    name  = "controller.tolerations[0].effect"
+    value = "NoSchedule"
+  }
+
   depends_on = [module.aks]
 }
 
