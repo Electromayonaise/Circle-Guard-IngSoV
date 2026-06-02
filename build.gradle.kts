@@ -16,7 +16,7 @@ allprojects {
     }
 }
 
-sonarqube {
+sonar {
     properties {
         property("sonar.projectKey", "circleguard")
         property("sonar.projectName", "Circle Guard")
