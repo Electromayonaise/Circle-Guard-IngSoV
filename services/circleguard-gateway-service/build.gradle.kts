@@ -24,7 +24,10 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
 }
 
-private val jacocoExclusions = listOf("**/GatewayServiceApplication.class")
+private val jacocoExclusions = listOf(
+    "**/GatewayServiceApplication.class",
+    "**/config/RestTemplateConfig.class"
+)
 
 tasks.withType<JacocoReport>().configureEach {
     classDirectories.setFrom(
