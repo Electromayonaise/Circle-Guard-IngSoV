@@ -120,6 +120,66 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    sh '''
+                        az login --service-principal \
+                            -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                            --tenant "$ARM_TENANT_ID" --output none
+                        export ACR_TOKEN=$(az acr login --name circleguarddevacr \
+                            --expose-token --output tsv --query accessToken)
+
+                        rm -f trivy-stage-report.txt
+                        FAILED=0
+
+                        for SVC in auth identity form promotion notification gateway dashboard file; do
+                            IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
+                            echo "=== Scanning $IMAGE ===" | tee -a trivy-stage-report.txt
+
+                            docker run --rm \
+                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                -e TRIVY_NON_SSL=false \
+                                aquasec/trivy:latest image \
+                                --timeout 15m \
+                                --severity CRITICAL,HIGH \
+                                --ignore-unfixed \
+                                --ignorefile /dev/stdin \
+                                --format table \
+                                "$IMAGE" 2>&1 | tee -a trivy-stage-report.txt <<'IGNORE'
+CVE-2016-1000027
+IGNORE
+
+                            EXIT=${PIPESTATUS[0]}
+                            if docker run --rm \
+                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                aquasec/trivy:latest image \
+                                --timeout 15m \
+                                --exit-code 1 \
+                                --severity CRITICAL \
+                                --ignore-unfixed \
+                                --quiet \
+                                "$IMAGE" 2>/dev/null; then
+                                echo "[PASS] $SVC — no CRITICAL vulnerabilities" | tee -a trivy-stage-report.txt
+                            else
+                                echo "[FAIL] $SVC — CRITICAL vulnerabilities found" | tee -a trivy-stage-report.txt
+                                FAILED=1
+                            fi
+                        done
+
+                        [ $FAILED -eq 0 ] || exit 1
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-stage-report.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Deploy to Stage') {
             steps {
                 sh '''
