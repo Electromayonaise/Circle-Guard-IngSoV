@@ -69,22 +69,33 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        echo "Waiting for SonarQube Quality Gate..."
+                        apt-get install -y jq > /dev/null 2>&1
+
+                        echo "Checking Quality Gate..."
+                        QG_RESULT=TIMEOUT
                         for i in $(seq 1 30); do
-                            STATUS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            QG=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
                                 "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
-                                | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
-                            echo "Attempt $i — Quality Gate: $STATUS"
-                            if [ "$STATUS" = "OK" ]; then
-                                echo "Quality Gate PASSED"
-                                exit 0
-                            elif [ "$STATUS" = "ERROR" ]; then
-                                echo "Quality Gate FAILED — check SonarQube for details"
-                                exit 1
+                                2>/dev/null | jq -r '.projectStatus.status // "ERROR"')
+                            if [ "$QG" != "ERROR" ]; then
+                                echo "Quality Gate: $QG"
+                                [ "$QG" != "OK" ] && echo "Quality Gate FAILED!" && exit 1
+                                QG_RESULT=OK
+                                break
                             fi
+                            echo "Waiting for Quality Gate... ($i)"
                             sleep 5
                         done
-                        echo "Quality Gate timed out after 150s — proceeding anyway"
+                        [ "$QG_RESULT" = "OK" ] || { echo "Quality Gate timed out — FAILING pipeline"; exit 1; }
+
+                        echo "Checking Security Hotspots..."
+                        HOTSPOTS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            "$SONAR_HOST_URL/api/hotspots/search?projectKey=circleguard" \
+                            2>/dev/null | jq '[.hotspots[]? | select(.status != "REVIEWED")] | length' \
+                            2>/dev/null || echo 0)
+                        echo "Unreviewed Security Hotspots: $HOTSPOTS"
+                        [ "$HOTSPOTS" -gt 0 ] && echo "Security Hotspots detected!" && exit 1
+                        echo "No pending Security Hotspots"
                     '''
                 }
             }
@@ -122,7 +133,33 @@ pipeline {
 
         stage('Trivy Scan') {
             steps {
-                script {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    export ACR_TOKEN=$(az acr login --name circleguarddevacr \
+                        --expose-token --output tsv --query accessToken)
+
+                    printf 'CVE-2016-1000027\n' > "$WORKSPACE/.trivyignore"
+
+                    for SVC in auth identity form promotion notification gateway dashboard file; do
+                        IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
+                        echo "=== Scanning $IMAGE ==="
+                        docker run --rm \
+                            -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                            -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                            -v "$WORKSPACE/.trivyignore:/workspace/.trivyignore:ro" \
+                            aquasec/trivy:latest image \
+                            --timeout 15m \
+                            --exit-code 1 \
+                            --severity CRITICAL \
+                            --ignorefile /workspace/.trivyignore \
+                            "$IMAGE"
+                    done
+                '''
+            }
+            post {
+                always {
                     sh '''
                         az login --service-principal \
                             -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
@@ -131,50 +168,22 @@ pipeline {
                             --expose-token --output tsv --query accessToken)
 
                         rm -f trivy-stage-report.txt
-                        FAILED=0
-
                         for SVC in auth identity form promotion notification gateway dashboard file; do
                             IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
-                            echo "=== Scanning $IMAGE ===" | tee -a trivy-stage-report.txt
-
+                            echo "=== $IMAGE ===" | tee -a trivy-stage-report.txt
                             docker run --rm \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                -e TRIVY_NON_SSL=false \
+                                -v "$WORKSPACE/.trivyignore:/workspace/.trivyignore:ro" \
                                 aquasec/trivy:latest image \
                                 --timeout 15m \
                                 --severity CRITICAL,HIGH \
                                 --ignore-unfixed \
-                                --ignorefile /dev/stdin \
+                                --ignorefile /workspace/.trivyignore \
                                 --format table \
-                                "$IMAGE" 2>&1 | tee -a trivy-stage-report.txt <<'IGNORE'
-CVE-2016-1000027
-IGNORE
-
-                            EXIT=${PIPESTATUS[0]}
-                            if docker run --rm \
-                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
-                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                aquasec/trivy:latest image \
-                                --timeout 15m \
-                                --exit-code 1 \
-                                --severity CRITICAL \
-                                --ignore-unfixed \
-                                --quiet \
-                                "$IMAGE" 2>/dev/null; then
-                                echo "[PASS] $SVC — no CRITICAL vulnerabilities" | tee -a trivy-stage-report.txt
-                            else
-                                echo "[FAIL] $SVC — CRITICAL vulnerabilities found" | tee -a trivy-stage-report.txt
-                                FAILED=1
-                            fi
+                                "$IMAGE" 2>&1 | tee -a trivy-stage-report.txt || true
                         done
-
-                        [ $FAILED -eq 0 ] || exit 1
                     '''
-                }
-            }
-            post {
-                always {
                     archiveArtifacts artifacts: 'trivy-stage-report.txt', allowEmptyArchive: true
                 }
             }
