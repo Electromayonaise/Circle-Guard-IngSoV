@@ -1,13 +1,12 @@
 package com.circleguard.gateway.service;
 
+import com.circleguard.gateway.client.PromotionClient;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.security.Key;
@@ -23,11 +22,8 @@ class QrTokenExpirationTest {
 
     @BeforeEach
     void setUp() {
-        StringRedisTemplate redisTemplate = Mockito.mock(StringRedisTemplate.class);
-        @SuppressWarnings("unchecked")
-        ValueOperations<String, String> valueOps = Mockito.mock(ValueOperations.class);
-        Mockito.when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        service = new QrValidationService(redisTemplate);
+        PromotionClient promotionClient = Mockito.mock(PromotionClient.class);
+        service = new QrValidationService(promotionClient);
         ReflectionTestUtils.setField(service, "qrSecret", SECRET);
     }
 

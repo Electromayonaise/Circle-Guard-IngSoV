@@ -3,8 +3,8 @@ spring:
     name: circleguard-gateway-service
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 jwt:
   secret: "my-super-secret-dev-key-32-chars-long-12345678"
@@ -16,3 +16,30 @@ qr:
 
 server:
   port: 8087
+
+services:
+  promotion-url: ${CIRCLEGUARD_PROMOTION_SERVICE_URL:http://promotion-service:8088}
+
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1
+    instances:
+      promotionService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        recordExceptions:
+          - org.springframework.web.client.RestClientException
+          - java.io.IOException
+  retry:
+    retryAspectOrder: 2
+    instances:
+      promotionService:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.RestClientException
+          - java.io.IOException
