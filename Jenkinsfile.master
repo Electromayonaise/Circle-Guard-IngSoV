@@ -533,10 +533,56 @@ print(json.dumps(payload))
     }
 
     post {
-        failure { echo "MASTER pipeline FAILED on build ${BUILD_NUMBER}" }
+        failure {
+            echo "MASTER pipeline FAILED on build ${BUILD_NUMBER}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard MASTER] Build #${BUILD_NUMBER} FAILED — ${STAGE_NAME}",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: MASTER</b><br>
+                    <b>Status:</b> <span style="color:red">FAILED</span><br>
+                    <b>Version:</b> ${VERSION}<br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Failed Stage:</b> ${STAGE_NAME}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
+                    <b>Console:</b> <a href="${BUILD_URL}console">${BUILD_URL}console</a>
+                """
+            )
+        }
+        aborted {
+            echo "MASTER pipeline ABORTED (approval rejected) on build ${BUILD_NUMBER}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard MASTER] Build #${BUILD_NUMBER} ABORTED — deployment rejected",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: MASTER</b><br>
+                    <b>Status:</b> <span style="color:orange">ABORTED</span><br>
+                    <b>Version:</b> ${VERSION}<br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Reason:</b> Approval Gate rejected or timed out — production deployment was not executed.<br>
+                    <b>Console:</b> <a href="${BUILD_URL}console">${BUILD_URL}console</a>
+                """
+            )
+        }
         success {
             echo "MASTER pipeline SUCCESS -- Released ${env.VERSION}"
             archiveArtifacts artifacts: 'tests/performance/locust_master_results*.csv', fingerprint: true
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard MASTER] Released ${VERSION} — Build #${BUILD_NUMBER} SUCCESS",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: MASTER</b><br>
+                    <b>Status:</b> <span style="color:green">SUCCESS</span><br>
+                    <b>Version:</b> ${VERSION}<br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Quality Gate Dashboard</a><br>
+                    <b>Trivy Report:</b> <a href="${BUILD_URL}artifact/trivy-master-report.txt">Security Scan</a><br>
+                    <b>Release Notes:</b> <a href="${BUILD_URL}artifact/RELEASE_NOTES.md">RELEASE_NOTES.md</a>
+                """
+            )
         }
     }
 }
