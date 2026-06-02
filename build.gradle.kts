@@ -20,6 +20,7 @@ sonar {
     properties {
         property("sonar.projectKey", "circleguard")
         property("sonar.projectName", "Circle Guard")
+        property("sonar.gradle.skipCompile", "true")
         property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/test/jacocoTestReport.xml")
     }
 }

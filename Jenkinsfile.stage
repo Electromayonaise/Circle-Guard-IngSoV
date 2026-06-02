@@ -60,7 +60,7 @@ pipeline {
                     sh '''./gradlew sonar \
                         -Dsonar.host.url=$SONAR_HOST_URL \
                         -Dsonar.token=$SONAR_TOKEN \
-                        --no-daemon --continue || true'''
+                        --no-daemon'''
                 }
             }
         }
@@ -69,7 +69,9 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        apt-get install -y jq > /dev/null 2>&1
+                        curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 \
+                            -o "$WORKSPACE/jq" && chmod +x "$WORKSPACE/jq"
+                        export PATH="$WORKSPACE:$PATH"
 
                         echo "Checking Quality Gate..."
                         QG_RESULT=TIMEOUT
