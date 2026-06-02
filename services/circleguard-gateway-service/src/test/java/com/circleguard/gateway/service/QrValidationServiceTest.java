@@ -61,8 +61,80 @@ public class QrValidationServiceTest {
         Mockito.when(valueOps.get("user:status:" + anonymousId)).thenReturn("CONTAGIED");
 
         QrValidationService.ValidationResult result = service.validateToken(token);
-        
+
         assertFalse(result.valid());
         assertEquals("RED", result.status());
+        assertEquals("Access Denied: Health Risk Detected", result.message());
+    }
+
+    @Test
+    void shouldDenyAccessForPotentialUser() {
+        String anonymousId = UUID.randomUUID().toString();
+        Key key = Keys.hmacShaKeyFor(secret.getBytes());
+        String token = Jwts.builder()
+                .setSubject(anonymousId)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+
+        Mockito.when(valueOps.get("user:status:" + anonymousId)).thenReturn("POTENTIAL");
+
+        QrValidationService.ValidationResult result = service.validateToken(token);
+
+        assertFalse(result.valid());
+        assertEquals("RED", result.status());
+        assertEquals("Access Denied: Health Risk Detected", result.message());
+    }
+
+    @Test
+    void shouldReturnWelcomeMessageForClearUser() {
+        String anonymousId = UUID.randomUUID().toString();
+        Key key = Keys.hmacShaKeyFor(secret.getBytes());
+        String token = Jwts.builder()
+                .setSubject(anonymousId)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+
+        Mockito.when(valueOps.get("user:status:" + anonymousId)).thenReturn(null);
+
+        QrValidationService.ValidationResult result = service.validateToken(token);
+
+        assertTrue(result.valid());
+        assertEquals("GREEN", result.status());
+        assertEquals("Welcome to Campus", result.message());
+    }
+
+    @Test
+    void shouldReturnErrorMessageForInvalidToken() {
+        QrValidationService.ValidationResult result = service.validateToken("not.a.valid.jwt");
+
+        assertFalse(result.valid());
+        assertEquals("RED", result.status());
+        assertEquals("Invalid or Expired Token", result.message());
+    }
+
+    @Test
+    void validationResultSupportsEquality() {
+        QrValidationService.ValidationResult r1 =
+                new QrValidationService.ValidationResult(true, "GREEN", "Welcome to Campus");
+        QrValidationService.ValidationResult r2 =
+                new QrValidationService.ValidationResult(true, "GREEN", "Welcome to Campus");
+        QrValidationService.ValidationResult r3 =
+                new QrValidationService.ValidationResult(false, "RED", "Access Denied: Health Risk Detected");
+
+        assertEquals(r1, r2);
+        assertNotEquals(r1, r3);
+        assertEquals(r1.hashCode(), r2.hashCode());
+        assertNotEquals(r1.hashCode(), r3.hashCode());
+    }
+
+    @Test
+    void validationResultToStringContainsFields() {
+        QrValidationService.ValidationResult result =
+                new QrValidationService.ValidationResult(true, "GREEN", "Welcome to Campus");
+
+        String str = result.toString();
+        assertNotNull(str);
+        assertTrue(str.contains("GREEN"));
+        assertTrue(str.contains("Welcome to Campus"));
     }
 }

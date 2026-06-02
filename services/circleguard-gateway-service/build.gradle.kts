@@ -21,3 +21,21 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:junit-jupiter")
 }
+
+private val jacocoExclusions = listOf("**/GatewayServiceApplication.class")
+
+tasks.withType<JacocoReport>().configureEach {
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) { exclude(jacocoExclusions) }
+        })
+    )
+}
+
+tasks.withType<JacocoCoverageVerification>().configureEach {
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) { exclude(jacocoExclusions) }
+        })
+    )
+}
