@@ -20,10 +20,7 @@ sonarqube {
     properties {
         property("sonar.projectKey", "circleguard")
         property("sonar.projectName", "Circle Guard")
-        property("sonar.sources", "src/main/kotlin,src/main/java")
-        property("sonar.tests", "src/test/kotlin,src/test/java")
         property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/test/jacocoTestReport.xml")
-        property("sonar.java.binaries", "**/build/classes")
     }
 }
 
