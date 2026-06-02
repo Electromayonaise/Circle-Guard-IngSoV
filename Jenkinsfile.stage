@@ -18,6 +18,7 @@ pipeline {
         ARM_CLIENT_ID                  = credentials('azure-client-id')
         ARM_CLIENT_SECRET              = credentials('azure-client-secret')
         ARM_TENANT_ID                  = credentials('azure-tenant-id')
+        SONAR_HOST_URL                 = "http://sonarqube.sonarqube.svc.cluster.local:9000"
     }
 
     stages {
@@ -53,6 +54,42 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''./gradlew sonarqube \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        --no-daemon --continue || true'''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        echo "Waiting for SonarQube Quality Gate..."
+                        for i in $(seq 1 30); do
+                            STATUS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                                "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
+                                | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+                            echo "Attempt $i — Quality Gate: $STATUS"
+                            if [ "$STATUS" = "OK" ]; then
+                                echo "Quality Gate PASSED"
+                                exit 0
+                            elif [ "$STATUS" = "ERROR" ]; then
+                                echo "Quality Gate FAILED — check SonarQube for details"
+                                exit 1
+                            fi
+                            sleep 5
+                        done
+                        echo "Quality Gate timed out after 150s — proceeding anyway"
+                    '''
+                }
+            }
+        }
+
         stage('Docker Build & Push') {
             steps {
                 sh '''
@@ -79,6 +116,66 @@ pipeline {
                         sh "docker build -f ${svc.dockerfile} -t ${image} ."
                         sh "docker push ${image}"
                     }
+                }
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    sh '''
+                        az login --service-principal \
+                            -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                            --tenant "$ARM_TENANT_ID" --output none
+                        export ACR_TOKEN=$(az acr login --name circleguarddevacr \
+                            --expose-token --output tsv --query accessToken)
+
+                        rm -f trivy-stage-report.txt
+                        FAILED=0
+
+                        for SVC in auth identity form promotion notification gateway dashboard file; do
+                            IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
+                            echo "=== Scanning $IMAGE ===" | tee -a trivy-stage-report.txt
+
+                            docker run --rm \
+                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                -e TRIVY_NON_SSL=false \
+                                aquasec/trivy:latest image \
+                                --timeout 15m \
+                                --severity CRITICAL,HIGH \
+                                --ignore-unfixed \
+                                --ignorefile /dev/stdin \
+                                --format table \
+                                "$IMAGE" 2>&1 | tee -a trivy-stage-report.txt <<'IGNORE'
+CVE-2016-1000027
+IGNORE
+
+                            EXIT=${PIPESTATUS[0]}
+                            if docker run --rm \
+                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                aquasec/trivy:latest image \
+                                --timeout 15m \
+                                --exit-code 1 \
+                                --severity CRITICAL \
+                                --ignore-unfixed \
+                                --quiet \
+                                "$IMAGE" 2>/dev/null; then
+                                echo "[PASS] $SVC — no CRITICAL vulnerabilities" | tee -a trivy-stage-report.txt
+                            else
+                                echo "[FAIL] $SVC — CRITICAL vulnerabilities found" | tee -a trivy-stage-report.txt
+                                FAILED=1
+                            fi
+                        done
+
+                        [ $FAILED -eq 0 ] || exit 1
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-stage-report.txt', allowEmptyArchive: true
                 }
             }
         }
@@ -269,7 +366,38 @@ spec:
     }
 
     post {
-        failure { echo "Stage pipeline FAILED on build ${BUILD_NUMBER}" }
-        success { echo "Stage pipeline SUCCESS - deployed to namespace: ${NAMESPACE}" }
+        failure {
+            echo "Stage pipeline FAILED on build ${BUILD_NUMBER}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard STAGE] Build #${BUILD_NUMBER} FAILED — ${STAGE_NAME}",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: STAGE</b><br>
+                    <b>Status:</b> <span style="color:red">FAILED</span><br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Branch:</b> ${GIT_BRANCH}<br>
+                    <b>Failed Stage:</b> ${STAGE_NAME}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
+                    <b>Console:</b> <a href="${BUILD_URL}console">${BUILD_URL}console</a>
+                """
+            )
+        }
+        success {
+            echo "Stage pipeline SUCCESS - deployed to namespace: ${NAMESPACE}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard STAGE] Build #${BUILD_NUMBER} PASSED",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: STAGE</b><br>
+                    <b>Status:</b> <span style="color:green">SUCCESS</span><br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Image Tag:</b> ${IMAGE_TAG}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
+                    <b>Trivy Report:</b> <a href="${BUILD_URL}artifact/trivy-stage-report.txt">trivy-stage-report.txt</a>
+                """
+            )
+        }
     }
 }

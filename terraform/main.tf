@@ -122,3 +122,12 @@ module "jenkins" {
   depends_on = [module.aks, module.acr]
 }
 
+module "sonarqube" {
+  count  = var.deploy_shared_infra ? 1 : 0
+  source = "./modules/sonarqube"
+
+  db_password = var.sonarqube_db_password
+
+  depends_on = [module.aks]
+}
+
