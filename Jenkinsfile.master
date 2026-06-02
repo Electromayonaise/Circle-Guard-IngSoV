@@ -16,6 +16,7 @@ pipeline {
         ARM_CLIENT_ID                  = credentials('azure-client-id')
         ARM_CLIENT_SECRET              = credentials('azure-client-secret')
         ARM_TENANT_ID                  = credentials('azure-tenant-id')
+        SONAR_HOST_URL                 = "http://sonarqube.sonarqube.svc.cluster.local:9000"
     }
 
     stages {
@@ -105,6 +106,43 @@ pipeline {
                         sourcePattern: '**/src/main/kotlin,**/src/main/java',
                         minimumLineCoverage: '0'
                     )
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''./gradlew sonarqube \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        --no-daemon --continue || true'''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        echo "Waiting for SonarQube Quality Gate..."
+                        for i in $(seq 1 30); do
+                            STATUS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                                "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
+                                | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+                            echo "Attempt $i — Quality Gate: $STATUS"
+                            if [ "$STATUS" = "OK" ]; then
+                                echo "Quality Gate PASSED"
+                                exit 0
+                            elif [ "$STATUS" = "ERROR" ]; then
+                                echo "Quality Gate FAILED — check SonarQube for details"
+                                exit 1
+                            fi
+                            sleep 5
+                        done
+                        echo "Quality Gate timed out after 150s"
+                        exit 1
+                    '''
                 }
             }
         }

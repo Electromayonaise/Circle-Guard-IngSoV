@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm") version "1.9.24" apply false
     kotlin("plugin.spring") version "1.9.24" apply false
     kotlin("plugin.jpa") version "1.9.24" apply false
+    id("org.sonarqube") version "4.4.1.3373"
 }
 
 allprojects {
@@ -12,6 +13,17 @@ allprojects {
 
     repositories {
         mavenCentral()
+    }
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", "circleguard")
+        property("sonar.projectName", "Circle Guard")
+        property("sonar.sources", "src/main/kotlin,src/main/java")
+        property("sonar.tests", "src/test/kotlin,src/test/java")
+        property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/test/jacocoTestReport.xml")
+        property("sonar.java.binaries", "**/build/classes")
     }
 }
 

@@ -85,3 +85,10 @@ variable "jenkins_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "sonarqube_db_password" {
+  description = "PostgreSQL password for SonarQube internal database"
+  type        = string
+  sensitive   = true
+  default     = "sonarpass"
+}
