@@ -444,7 +444,7 @@ resource "kubernetes_config_map" "circleguard_config" {
     QR_EXPIRATION                   = "300000"
     SERVICES_IDENTITY_URL                    = "http://identity-service:8083"
     CIRCLEGUARD_PROMOTION_SERVICE_URL        = "http://promotion-service:8088"
-    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE = "health,prometheus,info"
+    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE = "health,prometheus,info,circuitbreakers,retries"
     MANAGEMENT_HEALTH_PROBES_ENABLED         = "true"
     MANAGEMENT_ZIPKIN_TRACING_ENDPOINT       = "http://zipkin.monitoring.svc.cluster.local:9411/api/v2/spans"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY  = "1.0"
@@ -460,4 +460,41 @@ resource "kubernetes_config_map" "circleguard_config" {
     kubernetes_deployment.redis,
     kubernetes_deployment.neo4j,
   ]
+}
+
+# ── Gateway Ingress ───────────────────────────────────────────────────────────
+
+resource "kubernetes_ingress_v1" "gateway" {
+  metadata {
+    name      = "gateway-ingress"
+    namespace = local.ns
+    annotations = {
+      "nginx.ingress.kubernetes.io/ssl-redirect"       = "true"
+      "nginx.ingress.kubernetes.io/force-ssl-redirect" = "true"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    rule {
+      host = "gateway-${local.ns}.circleguard.local"
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "gateway-service"
+              port {
+                number = 8087
+              }
+            }
+          }
+        }
+      }
+    }
+    tls {
+      hosts       = ["gateway-${local.ns}.circleguard.local"]
+      secret_name = "gateway-tls-secret"
+    }
+  }
 }
