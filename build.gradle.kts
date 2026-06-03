@@ -35,30 +35,46 @@ subprojects {
     }
 
     configurations.all {
-        resolutionStrategy.eachDependency {
-            if (requested.group == "org.apache.tomcat.embed") {
-                useVersion("10.1.55")
-            }
-            if (requested.group == "org.springframework.security") {
-                useVersion("6.5.9")
-            }
-            if (requested.group == "org.springframework") {
-                useVersion("6.2.11")
-            }
-            if (requested.group == "org.postgresql" && requested.name == "postgresql") {
-                useVersion("42.7.11")
-            }
-            if (requested.group == "org.apache.kafka" && requested.name == "kafka-clients") {
-                useVersion("3.9.2")
-            }
-            if (requested.group == "org.lz4" && requested.name == "lz4-java") {
-                useVersion("1.8.1")
-            }
-            if (requested.group == "io.netty") {
-                useVersion("4.1.133.Final")
-            }
-            if (requested.group == "commons-io" && requested.name == "commons-io") {
-                useVersion("2.14.0")
+        resolutionStrategy {
+            // force() is evaluated before any eachDependency action, including those registered
+            // by the io.spring.dependency-management plugin (which re-applies BOM versions via
+            // its own eachDependency and would silently override useVersion() calls in ours).
+            force(
+                // Tomcat — CVE-2026-41293, CVE-2026-43512, CVE-2026-43515 (CRITICAL)
+                "org.apache.tomcat.embed:tomcat-embed-core:10.1.55",
+                "org.apache.tomcat.embed:tomcat-embed-websocket:10.1.55",
+                "org.apache.tomcat.embed:tomcat-embed-el:10.1.55",
+                // PostgreSQL — CVE-2026-42198 (HIGH)
+                "org.postgresql:postgresql:42.7.11",
+                // Kafka — HIGH
+                "org.apache.kafka:kafka-clients:3.9.2",
+                // lz4-java — HIGH
+                "org.lz4:lz4-java:1.8.1",
+                // commons-io
+                "commons-io:commons-io:2.14.0",
+                // Netty — CVE-2026-42583, CVE-2026-42579, CVE-2026-42584, CVE-2026-42587 (HIGH)
+                "io.netty:netty-codec:4.1.133.Final",
+                "io.netty:netty-codec-dns:4.1.133.Final",
+                "io.netty:netty-codec-http:4.1.133.Final",
+                "io.netty:netty-codec-http2:4.1.133.Final",
+                "io.netty:netty-buffer:4.1.133.Final",
+                "io.netty:netty-common:4.1.133.Final",
+                "io.netty:netty-handler:4.1.133.Final",
+                "io.netty:netty-resolver:4.1.133.Final",
+                "io.netty:netty-resolver-dns:4.1.133.Final",
+                "io.netty:netty-transport:4.1.133.Final",
+                "io.netty:netty-transport-native-epoll:4.1.133.Final",
+                "io.netty:netty-transport-native-unix-common:4.1.133.Final"
+            )
+            // eachDependency for group-wide overrides where listing every artifact is impractical.
+            // These are supplementary — force() above already covers the CVE-affected artifacts.
+            eachDependency {
+                if (requested.group == "org.springframework.security") {
+                    useVersion("6.5.9")
+                }
+                if (requested.group == "org.springframework") {
+                    useVersion("6.2.11")
+                }
             }
         }
     }
