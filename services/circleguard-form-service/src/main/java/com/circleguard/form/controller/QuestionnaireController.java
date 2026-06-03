@@ -11,7 +11,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/questionnaires")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class QuestionnaireController {
     private final QuestionnaireService service;

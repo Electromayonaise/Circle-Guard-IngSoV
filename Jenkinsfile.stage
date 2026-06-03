@@ -60,6 +60,7 @@ pipeline {
                     sh '''./gradlew sonar \
                         -Dsonar.host.url=$SONAR_HOST_URL \
                         -Dsonar.token=$SONAR_TOKEN \
+                        -Dsonar.gradle.skipCompile=true \
                         --no-daemon'''
                 }
             }
@@ -213,7 +214,7 @@ pipeline {
                 sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
                     sh "kubectl apply -f k8s/rbac.yaml -n ${NAMESPACE}"
-                    sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
+                    sh "sed 's/__NAMESPACE__/${NAMESPACE}/g' k8s/configmap.yaml | kubectl apply -f - -n ${NAMESPACE}"
                     sh "kubectl apply -f k8s/cert-manager/certificate-gateway.yaml -n ${NAMESPACE} || true"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->

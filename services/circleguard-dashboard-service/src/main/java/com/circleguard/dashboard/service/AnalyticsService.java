@@ -4,6 +4,7 @@ import com.circleguard.dashboard.client.PromotionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import java.security.SecureRandom;
 import java.util.*;
 
 @Service
@@ -12,6 +13,14 @@ public class AnalyticsService {
     private final JdbcTemplate jdbc;
     private final PromotionClient promotionClient;
     private final KAnonymityFilter kAnonymityFilter;
+
+    private static final String TIMESERIES_DAILY =
+        "SELECT date_trunc('day', event_time) as bucket, status, count(*) as total " +
+        "FROM status_events GROUP BY bucket, status ORDER BY bucket DESC LIMIT ?";
+
+    private static final String TIMESERIES_HOURLY =
+        "SELECT date_trunc('hour', event_time) as bucket, status, count(*) as total " +
+        "FROM status_events GROUP BY bucket, status ORDER BY bucket DESC LIMIT ?";
 
     /**
      * Gets campus-wide health summary from promotion-service.
@@ -62,20 +71,10 @@ public class AnalyticsService {
      * Queries the local dashboard DB for event history.
      */
     public List<Map<String, Object>> getTimeSeries(String period, int limit) {
-        // period: "hourly" or "daily"
-        String truncation = "daily".equals(period) ? "day" : "hour";
-        
-        String query = "SELECT date_trunc('" + truncation + "', event_time) as bucket, " +
-                       "status, count(*) as total " +
-                       "FROM status_events " +
-                       "GROUP BY bucket, status " +
-                       "ORDER BY bucket DESC " +
-                       "LIMIT ?";
-        
+        String query = "daily".equals(period) ? TIMESERIES_DAILY : TIMESERIES_HOURLY;
         try {
             return jdbc.queryForList(query, limit);
         } catch (Exception e) {
-            // Table may not exist yet — return mock data for PoC
             return generateMockTimeSeries(limit);
         }
     }
@@ -84,7 +83,7 @@ public class AnalyticsService {
         List<Map<String, Object>> series = new ArrayList<>();
         long now = System.currentTimeMillis();
         String[] statuses = {"ACTIVE", "SUSPECT", "PROBABLE", "CONFIRMED"};
-        Random rng = new Random(42);
+        SecureRandom rng = new SecureRandom();
 
         for (int i = 0; i < Math.min(limit, 24); i++) {
             for (String status : statuses) {

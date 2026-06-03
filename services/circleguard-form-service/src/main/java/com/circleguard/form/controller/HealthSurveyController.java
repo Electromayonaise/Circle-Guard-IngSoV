@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/surveys")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class HealthSurveyController {
     private final HealthSurveyService surveyService;

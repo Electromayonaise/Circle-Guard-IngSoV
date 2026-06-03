@@ -18,3 +18,6 @@ server:
 
 analytics:
   enabled: ${ANALYTICS_ENABLED:true}
+
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:8081,http://localhost:8080}

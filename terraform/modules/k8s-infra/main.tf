@@ -449,6 +449,7 @@ resource "kubernetes_config_map" "circleguard_config" {
     MANAGEMENT_ZIPKIN_TRACING_ENDPOINT       = "http://zipkin.monitoring.svc.cluster.local:9411/api/v2/spans"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY  = "1.0"
     ANALYTICS_ENABLED                        = "true"
+    ALLOWED_ORIGINS                          = "https://gateway-${local.ns}.circleguard.local,http://localhost:8081,http://localhost:8080"
   }
 
   lifecycle {
