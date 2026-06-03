@@ -13,6 +13,3 @@ spring:
 
 cors:
   allowed-origins: https://gateway-dev.circleguard.local,https://gateway-stage.circleguard.local,https://gateway-master.circleguard.local
-
-cors:
-  allowed-origins: http://localhost:8080
