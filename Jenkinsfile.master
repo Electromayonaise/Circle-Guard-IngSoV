@@ -126,23 +126,49 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        echo "Waiting for SonarQube Quality Gate..."
+                        curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 \
+                            -o "$WORKSPACE/jq" && chmod +x "$WORKSPACE/jq"
+                        export PATH="$WORKSPACE:$PATH"
+
+                        echo "Checking Quality Gate..."
+                        QG_RESULT=TIMEOUT
                         for i in $(seq 1 30); do
-                            STATUS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            QG_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
                                 "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
-                                | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
-                            echo "Attempt $i — Quality Gate: $STATUS"
-                            if [ "$STATUS" = "OK" ]; then
-                                echo "Quality Gate PASSED"
-                                exit 0
-                            elif [ "$STATUS" = "ERROR" ]; then
-                                echo "Quality Gate FAILED — check SonarQube for details"
-                                exit 1
+                                2>/dev/null)
+                            QG=$(echo "$QG_RESPONSE" | jq -r '.projectStatus.status // "ERROR"')
+                            if [ "$QG" != "ERROR" ]; then
+                                echo "Quality Gate status: $QG"
+                                if [ "$QG" != "OK" ]; then
+                                    echo "Quality Gate FAILED. Failing conditions:"
+                                    echo "$QG_RESPONSE" | jq -r \
+                                        '.projectStatus.conditions[]? | select(.status != "OK") |
+                                        "  - \\(.metricKey): actual=\\(.actualValue) threshold=\\(.errorThreshold)"'
+                                    exit 1
+                                fi
+                                QG_RESULT=OK
+                                break
                             fi
+                            echo "Waiting for Quality Gate... ($i)"
                             sleep 5
                         done
-                        echo "Quality Gate timed out after 150s"
-                        exit 1
+                        [ "$QG_RESULT" = "OK" ] || { echo "Quality Gate timed out — FAILING pipeline"; exit 1; }
+
+                        echo "Checking Security Hotspots..."
+                        HOTSPOTS_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            "$SONAR_HOST_URL/api/hotspots/search?projectKey=circleguard" 2>/dev/null)
+                        HOTSPOTS=$(echo "$HOTSPOTS_RESPONSE" | \
+                            jq '[.hotspots[]? | select(.status != "REVIEWED")] | length' 2>/dev/null || echo 0)
+                        echo "Unreviewed Security Hotspots: $HOTSPOTS"
+                        if [ "$HOTSPOTS" -gt 0 ]; then
+                            echo "Unreviewed hotspots:"
+                            echo "$HOTSPOTS_RESPONSE" | jq -r \
+                                '.hotspots[]? | select(.status != "REVIEWED") |
+                                "  - [\\(.ruleKey)] \\(.message) (\\(.component):\\(.line))"' 2>/dev/null || true
+                            echo "FAILED — review or dismiss the hotspots listed above in SonarQube."
+                            exit 1
+                        fi
+                        echo "No pending Security Hotspots"
                     '''
                 }
             }
