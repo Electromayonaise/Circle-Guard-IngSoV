@@ -26,7 +26,7 @@ public class StorageService {
 
     public String store(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || originalFilename.contains("..") || originalFilename.contains("/")) {
+        if (originalFilename == null || originalFilename.isBlank() || originalFilename.contains("..") || originalFilename.contains("/")) {
             throw new RuntimeException("Invalid filename: " + originalFilename);
         }
         try {
