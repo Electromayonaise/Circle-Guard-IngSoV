@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "3.2.4" apply false
+    id("org.springframework.boot") version "3.4.7" apply false
     id("io.spring.dependency-management") version "1.1.4" apply false
     kotlin("jvm") version "1.9.24" apply false
     kotlin("plugin.spring") version "1.9.24" apply false
@@ -35,8 +35,8 @@ subprojects {
     }
 
     dependencies {
-        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.2.4"))
-        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.2.4"))
+        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
+        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
         "compileOnly"("org.projectlombok:lombok")
         "annotationProcessor"("org.projectlombok:lombok")
         "testCompileOnly"("org.projectlombok:lombok")
