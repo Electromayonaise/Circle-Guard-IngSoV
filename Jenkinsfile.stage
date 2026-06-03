@@ -87,7 +87,7 @@ pipeline {
                                     echo "Quality Gate FAILED. Failing conditions:"
                                     echo "$QG_RESPONSE" | jq -r \
                                         '.projectStatus.conditions[]? | select(.status != "OK") |
-                                        "  - \(.metricKey): actual=\(.actualValue) threshold=\(.errorThreshold)"'
+                                        "  - \\(.metricKey): actual=\\(.actualValue) threshold=\\(.errorThreshold)"'
                                     exit 1
                                 fi
                                 QG_RESULT=OK
@@ -108,7 +108,7 @@ pipeline {
                             echo "Unreviewed hotspots:"
                             echo "$HOTSPOTS_RESPONSE" | jq -r \
                                 '.hotspots[]? | select(.status != "REVIEWED") |
-                                "  - [\(.ruleKey)] \(.message) (\(.component):\(.line))"' 2>/dev/null || true
+                                "  - [\\(.ruleKey)] \\(.message) (\\(.component):\\(.line))"' 2>/dev/null || true
                             echo "FAILED — review or dismiss the hotspots listed above in SonarQube."
                             exit 1
                         fi
