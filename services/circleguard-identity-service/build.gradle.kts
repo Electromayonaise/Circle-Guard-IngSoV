@@ -7,8 +7,8 @@ plugins {
 }
 
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
-    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")

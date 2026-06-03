@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "3.4.7" apply false
+    id("org.springframework.boot") version "3.5.14" apply false
     id("io.spring.dependency-management") version "1.1.4" apply false
     kotlin("jvm") version "1.9.24" apply false
     kotlin("plugin.spring") version "1.9.24" apply false
@@ -34,9 +34,38 @@ subprojects {
         }
     }
 
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.apache.tomcat.embed") {
+                useVersion("10.1.55")
+            }
+            if (requested.group == "org.springframework.security") {
+                useVersion("6.5.9")
+            }
+            if (requested.group == "org.springframework") {
+                useVersion("6.2.11")
+            }
+            if (requested.group == "org.postgresql" && requested.name == "postgresql") {
+                useVersion("42.7.11")
+            }
+            if (requested.group == "org.apache.kafka" && requested.name == "kafka-clients") {
+                useVersion("3.9.2")
+            }
+            if (requested.group == "org.lz4" && requested.name == "lz4-java") {
+                useVersion("1.8.1")
+            }
+            if (requested.group == "io.netty") {
+                useVersion("4.1.133.Final")
+            }
+            if (requested.group == "commons-io" && requested.name == "commons-io") {
+                useVersion("2.14.0")
+            }
+        }
+    }
+
     dependencies {
-        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
-        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.4.7"))
+        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
         "compileOnly"("org.projectlombok:lombok")
         "annotationProcessor"("org.projectlombok:lombok")
         "testCompileOnly"("org.projectlombok:lombok")

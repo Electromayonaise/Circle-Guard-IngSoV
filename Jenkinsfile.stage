@@ -178,20 +178,20 @@ pipeline {
                         export ACR_TOKEN=$(az acr login --name circleguarddevacr \
                             --expose-token --output tsv --query accessToken)
 
-                        rm -f trivy-stage-report.txt
+                        rm -f trivy-*-report.json
                         for SVC in auth identity form promotion notification gateway dashboard file; do
                             IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
-                            echo "=== $IMAGE ===" | tee -a trivy-stage-report.txt
+                            echo "=== Generating JSON report for $IMAGE ==="
                             docker run --rm \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
                                 --entrypoint /bin/sh \
                                 aquasec/trivy:latest \
-                                -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format table $IMAGE" \
-                                2>&1 | tee -a trivy-stage-report.txt || true
+                                -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format json $IMAGE" \
+                                > "trivy-${SVC}-report.json" 2>/dev/null || true
                         done
                     '''
-                    archiveArtifacts artifacts: 'trivy-stage-report.txt', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-*-report.json', allowEmptyArchive: true
                 }
             }
         }
@@ -411,7 +411,7 @@ spec:
                     <b>Build:</b> #${BUILD_NUMBER}<br>
                     <b>Image Tag:</b> ${IMAGE_TAG}<br>
                     <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
-                    <b>Trivy Report:</b> <a href="${BUILD_URL}artifact/trivy-stage-report.txt">trivy-stage-report.txt</a>
+                    <b>Trivy Reports:</b> <a href="${BUILD_URL}artifact/">trivy-*-report.json</a>
                 """
             )
         }
