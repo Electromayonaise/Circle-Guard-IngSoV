@@ -81,6 +81,8 @@ subprojects {
     dependencies {
         "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
         "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "annotationProcessor"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "testAnnotationProcessor"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
         "compileOnly"("org.projectlombok:lombok")
         "annotationProcessor"("org.projectlombok:lombok")
         "testCompileOnly"("org.projectlombok:lombok")
