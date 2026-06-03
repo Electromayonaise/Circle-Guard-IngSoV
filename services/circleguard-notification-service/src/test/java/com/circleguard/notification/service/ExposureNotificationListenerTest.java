@@ -28,9 +28,6 @@ class ExposureNotificationListenerTest {
     private org.springframework.mail.javamail.JavaMailSender mailSender;
 
     @MockitoBean
-    private org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
-
-    @MockitoBean
     private EmailService emailService;
 
     @MockitoBean

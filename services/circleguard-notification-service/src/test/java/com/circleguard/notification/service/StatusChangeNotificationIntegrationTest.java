@@ -42,9 +42,6 @@ class StatusChangeNotificationIntegrationTest {
     @MockitoBean
     private org.springframework.mail.javamail.JavaMailSender mailSender;
 
-    @MockitoBean
-    private org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
-
     @Test
     void shouldDispatchNotificationWhenSuspectStatusChangeReceived() throws Exception {
         String event = "{\"anonymousId\": \"status-test-user\", \"status\": \"SUSPECT\"}";
