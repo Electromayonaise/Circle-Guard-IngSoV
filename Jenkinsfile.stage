@@ -18,6 +18,7 @@ pipeline {
         ARM_CLIENT_ID                  = credentials('azure-client-id')
         ARM_CLIENT_SECRET              = credentials('azure-client-secret')
         ARM_TENANT_ID                  = credentials('azure-tenant-id')
+        SONAR_HOST_URL                 = "http://sonarqube.sonarqube.svc.cluster.local:9000"
     }
 
     stages {
@@ -53,6 +54,70 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''./gradlew sonar \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        -Dsonar.gradle.skipCompile=true \
+                        --no-daemon'''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 \
+                            -o "$WORKSPACE/jq" && chmod +x "$WORKSPACE/jq"
+                        export PATH="$WORKSPACE:$PATH"
+
+                        echo "Checking Quality Gate..."
+                        QG_RESULT=TIMEOUT
+                        for i in $(seq 1 30); do
+                            QG_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                                "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
+                                2>/dev/null)
+                            QG=$(echo "$QG_RESPONSE" | jq -r '.projectStatus.status // "ERROR"')
+                            if [ "$QG" != "ERROR" ]; then
+                                echo "Quality Gate status: $QG"
+                                if [ "$QG" != "OK" ]; then
+                                    echo "Quality Gate FAILED. Failing conditions:"
+                                    echo "$QG_RESPONSE" | jq -r \
+                                        '.projectStatus.conditions[]? | select(.status != "OK") |
+                                        "  - \\(.metricKey): actual=\\(.actualValue) threshold=\\(.errorThreshold)"'
+                                    exit 1
+                                fi
+                                QG_RESULT=OK
+                                break
+                            fi
+                            echo "Waiting for Quality Gate... ($i)"
+                            sleep 5
+                        done
+                        [ "$QG_RESULT" = "OK" ] || { echo "Quality Gate timed out — FAILING pipeline"; exit 1; }
+
+                        echo "Checking Security Hotspots..."
+                        HOTSPOTS_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            "$SONAR_HOST_URL/api/hotspots/search?projectKey=circleguard" 2>/dev/null)
+                        HOTSPOTS=$(echo "$HOTSPOTS_RESPONSE" | \
+                            jq '[.hotspots[]? | select(.status != "REVIEWED")] | length' 2>/dev/null || echo 0)
+                        echo "Unreviewed Security Hotspots: $HOTSPOTS"
+                        if [ "$HOTSPOTS" -gt 0 ]; then
+                            echo "Unreviewed hotspots:"
+                            echo "$HOTSPOTS_RESPONSE" | jq -r \
+                                '.hotspots[]? | select(.status != "REVIEWED") |
+                                "  - [\\(.ruleKey)] \\(.message) (\\(.component):\\(.line))"' 2>/dev/null || true
+                            echo "FAILED — review or dismiss the hotspots listed above in SonarQube."
+                            exit 1
+                        fi
+                        echo "No pending Security Hotspots"
+                    '''
+                }
+            }
+        }
+
         stage('Docker Build & Push') {
             steps {
                 sh '''
@@ -83,6 +148,62 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan') {
+            steps {
+                sh '''
+                    az login --service-principal \
+                        -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                        --tenant "$ARM_TENANT_ID" --output none
+                    export ACR_TOKEN=$(az acr login --name circleguarddevacr \
+                        --expose-token --output tsv --query accessToken)
+
+                    # Volume mounts are unavailable when DOCKER_HOST is a remote TCP daemon (DinD).
+                    # Read the ignore list on the agent and pass it into each container via env var.
+                    TRIVYIGNORE=$(grep -Ev '^[[:space:]]*(#|$)' .trivyignore 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)
+
+                    for SVC in auth identity form promotion notification gateway dashboard file; do
+                        IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
+                        echo "=== Scanning $IMAGE ==="
+                        docker run --rm \
+                            -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                            -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                            -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                            --entrypoint /bin/sh \
+                            aquasec/trivy:latest \
+                            -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --exit-code 1 --severity CRITICAL --ignorefile /tmp/.trivyignore \"$IMAGE\""
+                    done
+                '''
+            }
+            post {
+                always {
+                    sh '''
+                        az login --service-principal \
+                            -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" \
+                            --tenant "$ARM_TENANT_ID" --output none
+                        export ACR_TOKEN=$(az acr login --name circleguarddevacr \
+                            --expose-token --output tsv --query accessToken)
+
+                        TRIVYIGNORE=$(grep -Ev '^[[:space:]]*(#|$)' .trivyignore 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)
+
+                        rm -f trivy-*-report.json
+                        for SVC in auth identity form promotion notification gateway dashboard file; do
+                            IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
+                            echo "=== Generating JSON report for $IMAGE ==="
+                            docker run --rm \
+                                -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
+                                -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                                --entrypoint /bin/sh \
+                                aquasec/trivy:latest \
+                                -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format json \"$IMAGE\"" \
+                                > "trivy-${SVC}-report.json" 2>/dev/null || true
+                        done
+                    '''
+                    archiveArtifacts artifacts: 'trivy-*-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Deploy to Stage') {
             steps {
                 sh '''
@@ -105,7 +226,7 @@ pipeline {
                 sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
                     sh "kubectl apply -f k8s/rbac.yaml -n ${NAMESPACE}"
-                    sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
+                    sh "sed 's/__NAMESPACE__/${NAMESPACE}/g' k8s/configmap.yaml | kubectl apply -f - -n ${NAMESPACE}"
                     sh "kubectl apply -f k8s/cert-manager/certificate-gateway.yaml -n ${NAMESPACE} || true"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
@@ -269,7 +390,38 @@ spec:
     }
 
     post {
-        failure { echo "Stage pipeline FAILED on build ${BUILD_NUMBER}" }
-        success { echo "Stage pipeline SUCCESS - deployed to namespace: ${NAMESPACE}" }
+        failure {
+            echo "Stage pipeline FAILED on build ${BUILD_NUMBER}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard STAGE] Build #${BUILD_NUMBER} FAILED — ${STAGE_NAME}",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: STAGE</b><br>
+                    <b>Status:</b> <span style="color:red">FAILED</span><br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Branch:</b> ${GIT_BRANCH}<br>
+                    <b>Failed Stage:</b> ${STAGE_NAME}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
+                    <b>Console:</b> <a href="${BUILD_URL}console">${BUILD_URL}console</a>
+                """
+            )
+        }
+        success {
+            echo "Stage pipeline SUCCESS - deployed to namespace: ${NAMESPACE}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard STAGE] Build #${BUILD_NUMBER} PASSED",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: STAGE</b><br>
+                    <b>Status:</b> <span style="color:green">SUCCESS</span><br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Image Tag:</b> ${IMAGE_TAG}<br>
+                    <b>SonarQube:</b> <a href="${SONAR_HOST_URL}/dashboard?id=circleguard">Dashboard</a><br>
+                    <b>Trivy Reports:</b> <a href="${BUILD_URL}artifact/">trivy-*-report.json</a>
+                """
+            )
+        }
     }
 }

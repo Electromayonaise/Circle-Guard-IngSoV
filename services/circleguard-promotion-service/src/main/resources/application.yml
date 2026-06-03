@@ -37,3 +37,6 @@ server:
 jwt:
   secret: "my-super-secret-dev-key-32-chars-long-12345678"
   expiration: 3600000
+
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:8081,http://localhost:8080}

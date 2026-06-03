@@ -137,7 +137,7 @@ pipeline {
                 sh "kubectl apply -f k8s/cert-manager/clusterissuer-selfsigned.yaml || true"
                 script {
                     sh "kubectl apply -f k8s/rbac.yaml -n ${NAMESPACE}"
-                    sh "kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}"
+                    sh "sed 's/__NAMESPACE__/${NAMESPACE}/g' k8s/configmap.yaml | kubectl apply -f - -n ${NAMESPACE}"
                     sh "kubectl apply -f k8s/cert-manager/certificate-gateway.yaml -n ${NAMESPACE} || true"
                     def services = ['auth', 'identity', 'form', 'promotion', 'notification', 'gateway', 'dashboard', 'file']
                     services.each { svc ->
@@ -235,6 +235,19 @@ spec:
     post {
         failure {
             echo "Dev pipeline FAILED on build ${BUILD_NUMBER}"
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[CircleGuard DEV] Build #${BUILD_NUMBER} FAILED",
+                mimeType: 'text/html',
+                body: """
+                    <b>Pipeline: DEV</b><br>
+                    <b>Status:</b> <span style="color:red">FAILED</span><br>
+                    <b>Build:</b> #${BUILD_NUMBER}<br>
+                    <b>Branch:</b> ${GIT_BRANCH}<br>
+                    <b>Failed Stage:</b> ${STAGE_NAME}<br>
+                    <b>Console:</b> <a href="${BUILD_URL}console">${BUILD_URL}console</a>
+                """
+            )
         }
         success {
             echo "Dev pipeline SUCCESS - image tag: ${IMAGE_TAG}"

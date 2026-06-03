@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.neo4j.core.Neo4jClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.Neo4jContainer;
@@ -36,7 +37,7 @@ public class PromotionPerformanceTest {
     @Autowired
     private HealthStatusService healthStatusService;
     
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @MockitoBean
     private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @Autowired

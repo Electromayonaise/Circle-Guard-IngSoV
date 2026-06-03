@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarqube-postgres-secret
+  namespace: sonarqube
+type: Opaque
+stringData:
+  POSTGRES_DB: sonar
+  POSTGRES_USER: sonar
+  POSTGRES_PASSWORD: sonarpass
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarqube-postgres-pvc
+  namespace: sonarqube
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarqube-postgres
+  namespace: sonarqube
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarqube-postgres
+  template:
+    metadata:
+      labels:
+        app: sonarqube-postgres
+    spec:
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "jenkins"
+          effect: "NoSchedule"
+      nodeSelector:
+        dedicated: "jenkins"
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          envFrom:
+            - secretRef:
+                name: sonarqube-postgres-secret
+          env:
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: "md5"
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sonarqube-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube-postgres
+  namespace: sonarqube
+spec:
+  selector:
+    app: sonarqube-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

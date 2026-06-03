@@ -1,13 +1,12 @@
 package com.circleguard.gateway.service;
 
+import com.circleguard.gateway.client.PromotionClient;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.security.Key;
@@ -20,15 +19,13 @@ import static org.mockito.Mockito.when;
 class JwtGatewayValidationIntegrationTest {
 
     private QrValidationService gatewayService;
-    private ValueOperations<String, String> valueOps;
+    private PromotionClient promotionClient;
     private static final String SHARED_SECRET = "my-qr-secret-key-for-dev-1234567890";
 
     @BeforeEach
     void setUp() {
-        StringRedisTemplate redisTemplate = Mockito.mock(StringRedisTemplate.class);
-        valueOps = Mockito.mock(ValueOperations.class);
-        when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        gatewayService = new QrValidationService(redisTemplate);
+        promotionClient = Mockito.mock(PromotionClient.class);
+        gatewayService = new QrValidationService(promotionClient);
         ReflectionTestUtils.setField(gatewayService, "qrSecret", SHARED_SECRET);
     }
 
@@ -43,7 +40,7 @@ class JwtGatewayValidationIntegrationTest {
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
-        when(valueOps.get("user:status:" + anonymousId)).thenReturn("CLEAR");
+        when(promotionClient.getHealthStatus(anonymousId.toString())).thenReturn("CLEAR");
 
         QrValidationService.ValidationResult result = gatewayService.validateToken(qrToken);
 

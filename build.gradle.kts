@@ -1,9 +1,9 @@
 plugins {
-    id("org.springframework.boot") version "3.2.4" apply false
-    id("io.spring.dependency-management") version "1.1.4" apply false
+    id("org.springframework.boot") version "3.5.14" apply false
     kotlin("jvm") version "1.9.24" apply false
     kotlin("plugin.spring") version "1.9.24" apply false
     kotlin("plugin.jpa") version "1.9.24" apply false
+    id("org.sonarqube") version "4.4.1.3373"
 }
 
 allprojects {
@@ -12,6 +12,15 @@ allprojects {
 
     repositories {
         mavenCentral()
+    }
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "circleguard")
+        property("sonar.projectName", "Circle Guard")
+        property("sonar.gradle.skipCompile", "true")
+        property("sonar.coverage.jacoco.xmlReportPaths", "**/build/reports/jacoco/test/jacocoTestReport.xml")
     }
 }
 
@@ -24,9 +33,56 @@ subprojects {
         }
     }
 
+    configurations.all {
+        resolutionStrategy {
+            // force() is evaluated before any eachDependency action, including those registered
+            // by the io.spring.dependency-management plugin (which re-applies BOM versions via
+            // its own eachDependency and would silently override useVersion() calls in ours).
+            force(
+                // Tomcat — CVE-2026-41293, CVE-2026-43512, CVE-2026-43515 (CRITICAL)
+                "org.apache.tomcat.embed:tomcat-embed-core:10.1.55",
+                "org.apache.tomcat.embed:tomcat-embed-websocket:10.1.55",
+                "org.apache.tomcat.embed:tomcat-embed-el:10.1.55",
+                // PostgreSQL — CVE-2026-42198 (HIGH)
+                "org.postgresql:postgresql:42.7.11",
+                // Kafka — HIGH
+                "org.apache.kafka:kafka-clients:3.9.2",
+                // lz4-java — HIGH
+                "org.lz4:lz4-java:1.8.1",
+                // commons-io
+                "commons-io:commons-io:2.14.0",
+                // Netty — CVE-2026-42583, CVE-2026-42579, CVE-2026-42584, CVE-2026-42587 (HIGH)
+                "io.netty:netty-codec:4.1.133.Final",
+                "io.netty:netty-codec-dns:4.1.133.Final",
+                "io.netty:netty-codec-http:4.1.133.Final",
+                "io.netty:netty-codec-http2:4.1.133.Final",
+                "io.netty:netty-buffer:4.1.133.Final",
+                "io.netty:netty-common:4.1.133.Final",
+                "io.netty:netty-handler:4.1.133.Final",
+                "io.netty:netty-resolver:4.1.133.Final",
+                "io.netty:netty-resolver-dns:4.1.133.Final",
+                "io.netty:netty-transport:4.1.133.Final",
+                "io.netty:netty-transport-native-epoll:4.1.133.Final",
+                "io.netty:netty-transport-native-unix-common:4.1.133.Final"
+            )
+            // eachDependency for group-wide overrides where listing every artifact is impractical.
+            // These are supplementary — force() above already covers the CVE-affected artifacts.
+            eachDependency {
+                if (requested.group == "org.springframework.security") {
+                    useVersion("6.5.9")
+                }
+                if (requested.group == "org.springframework") {
+                    useVersion("6.2.11")
+                }
+            }
+        }
+    }
+
     dependencies {
-        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.2.4"))
-        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.2.4"))
+        "implementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "testImplementation"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "annotationProcessor"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
+        "testAnnotationProcessor"(platform("org.springframework.boot:spring-boot-dependencies:3.5.14"))
         "compileOnly"("org.projectlombok:lombok")
         "annotationProcessor"("org.projectlombok:lombok")
         "testCompileOnly"("org.projectlombok:lombok")

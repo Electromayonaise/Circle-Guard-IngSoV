@@ -234,8 +234,6 @@ El build #50 del pipeline stage muestra 305 tests pasando, Integration Tests con
 
 ![Build exitoso Stage](images/jenkins-build-stage.png)
 
-_Pipeline master: pendiente de ejecución tras el primer merge a `main`._
-
 ![Build exitoso Master](images/jenkins-build-master.png)
 
 Jenkins corre como pod en el namespace `jenkins` del cluster AKS con node pool dedicado (`dedicated=jenkins:NoSchedule`), Docker-in-Docker (DinD) en modo TCP, y acceso a AKS vía Azure Service Principal. — [PR #33](https://github.com/Electromayonaise/Circle-Guard-IngSoV/pull/33)
@@ -243,7 +241,8 @@ Jenkins corre como pod en el namespace `jenkins` del cluster AKS con node pool d
 ### 4.2. Configurar ambientes separados (dev, stage, prod) con promoción controlada
 
 La promoción entre ambientes sigue el flujo de ramas:
-- **feature → develop**: dispara automáticamente los pipelines Dev y Stage en paralelo
+- **push a feature/\***: dispara automáticamente el pipeline Dev
+- **merge de feature → develop**: dispara automáticamente el pipeline Stage
 - **develop → main**: requiere PR aprobado manualmente + pipeline Stage verde
 
 Los tres namespaces (`dev`, `stage`, `master`) están activos en el cluster. Ver sección 2.3 para la imagen de namespaces.
@@ -340,9 +339,7 @@ El reporte pytest muestra los 16 tests en verde con sus tiempos reales. Los test
 
 ### 5.4. Implementar pruebas de rendimiento y estrés con Locust
 
-Configuración: **100 usuarios simultáneos**, spawn rate 10/s, duración 5 minutos. Resultado esperado: **~62.5 req/s, 0 fallos**.
-
-_Pendiente de ejecución — el pipeline master (que incluye el stage de Locust) se ejecuta en el primer merge a `main`._
+Configuración: **100 usuarios simultáneos**, spawn rate 10/s, duración 5 minutos. Resultado obtenido: **~58 req/s, 0 fallos** (17 411 requests totales, 0 errores).
 
 ![Locust Performance Report](images/locust-report.png)
 
@@ -431,8 +428,6 @@ El stage `Generate Release Notes` en `Jenkinsfile.master` analiza los commits de
 - fix(ci): remove redundant pollSCM trigger
 ```
 
-_Pendiente de ejecución — disponible en Jenkins (`circleguard-master` → Artifacts → `RELEASE_NOTES.md`) tras el primer merge a `main`._
-
 ![Release Notes en Jenkins](images/jenkins-release-notes.png)
 
 ### 6.3. Documentar planes de rollback
@@ -442,8 +437,6 @@ Los procedimientos completos de rollback por ambiente están documentados en [do
 ### 6.4. Implementar sistema de etiquetado de releases
 
 El stage `Tag Release` en `Jenkinsfile.master` crea un tag Git `vX.Y.Z` calculado por SemVer automático y lo sube al repositorio. Las imágenes Docker se publican con el mismo tag en ACR.
-
-_Pendiente de ejecución — disponible en `https://github.com/Electromayonaise/Circle-Guard-IngSoV/releases` tras el primer merge a `main`._
 
 ![GitHub Releases y Tags](images/github-releases-tags.png)
 

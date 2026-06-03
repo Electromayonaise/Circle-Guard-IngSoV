@@ -66,3 +66,29 @@ variable "jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "deploy_shared_infra" {
+  description = "Deploy shared cluster-wide infrastructure (monitoring, jenkins, cert-manager, ingress-nginx). Set true only in the primary workspace."
+  type        = bool
+  default     = false
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
+  default     = "circleguard"
+}
+
+variable "jenkins_image_tag" {
+  description = "Jenkins image tag in ACR"
+  type        = string
+  default     = "latest"
+}
+
+variable "sonarqube_db_password" {
+  description = "PostgreSQL password for SonarQube internal database"
+  type        = string
+  sensitive   = true
+  default     = "sonarpass"
+}

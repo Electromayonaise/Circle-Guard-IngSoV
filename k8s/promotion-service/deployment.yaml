@@ -19,6 +19,11 @@ spec:
         app: promotion-service
     spec:
       serviceAccountName: promotion-service-sa
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "jenkins"
+          effect: "NoSchedule"
       initContainers:
         - name: wait-for-neo4j
           image: busybox:1.36
@@ -75,8 +80,8 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              memory: "384Mi"
-              cpu: "100m"
+              memory: "256Mi"
+              cpu: "50m"
             limits:
               memory: "768Mi"
               cpu: "1500m"
