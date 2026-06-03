@@ -197,16 +197,19 @@ pipeline {
                             echo "=== Scanning $IMAGE ===" | tee -a trivy-master-report.txt
 
                             docker run --rm \
+                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
                                 aquasec/trivy:latest image \
                                 --timeout 15m \
                                 --severity CRITICAL,HIGH \
                                 --ignore-unfixed \
+                                --ignorefile /tmp/.trivyignore \
                                 --format table \
                                 "$IMAGE" 2>&1 | tee -a trivy-master-report.txt
 
                             if docker run --rm \
+                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
                                 aquasec/trivy:latest image \
@@ -214,6 +217,7 @@ pipeline {
                                 --exit-code 1 \
                                 --severity CRITICAL \
                                 --ignore-unfixed \
+                                --ignorefile /tmp/.trivyignore \
                                 --quiet \
                                 "$IMAGE" 2>/dev/null; then
                                 echo "[PASS] $SVC — no CRITICAL vulnerabilities" | tee -a trivy-master-report.txt

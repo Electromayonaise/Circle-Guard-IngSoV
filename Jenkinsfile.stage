@@ -161,11 +161,12 @@ pipeline {
                         IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
                         echo "=== Scanning $IMAGE ==="
                         docker run --rm \
+                            -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                             -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                             -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                            --entrypoint /bin/sh \
                             aquasec/trivy:latest \
-                            -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --exit-code 1 --severity CRITICAL --ignorefile /tmp/.trivyignore $IMAGE"
+                            image --timeout 15m --exit-code 1 --severity CRITICAL \
+                                --ignorefile /tmp/.trivyignore "$IMAGE"
                     done
                 '''
             }
@@ -183,11 +184,12 @@ pipeline {
                             IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
                             echo "=== Generating JSON report for $IMAGE ==="
                             docker run --rm \
+                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                --entrypoint /bin/sh \
                                 aquasec/trivy:latest \
-                                -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format json $IMAGE" \
+                                image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed \
+                                    --ignorefile /tmp/.trivyignore --format json "$IMAGE" \
                                 > "trivy-${SVC}-report.json" 2>/dev/null || true
                         done
                     '''
