@@ -60,6 +60,6 @@ class CircleServiceTest {
             codes.add(c.getInviteCode());
         }
 
-        assertThat(codes.size()).isGreaterThan(15);
+        assertThat(codes).hasSizeGreaterThan(15);
     }
 }

@@ -77,12 +77,19 @@ pipeline {
                         echo "Checking Quality Gate..."
                         QG_RESULT=TIMEOUT
                         for i in $(seq 1 30); do
-                            QG=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            QG_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
                                 "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=circleguard" \
-                                2>/dev/null | jq -r '.projectStatus.status // "ERROR"')
+                                2>/dev/null)
+                            QG=$(echo "$QG_RESPONSE" | jq -r '.projectStatus.status // "ERROR"')
                             if [ "$QG" != "ERROR" ]; then
-                                echo "Quality Gate: $QG"
-                                [ "$QG" != "OK" ] && echo "Quality Gate FAILED!" && exit 1
+                                echo "Quality Gate status: $QG"
+                                if [ "$QG" != "OK" ]; then
+                                    echo "Quality Gate FAILED. Failing conditions:"
+                                    echo "$QG_RESPONSE" | jq -r \
+                                        '.projectStatus.conditions[]? | select(.status != "OK") |
+                                        "  - \(.metricKey): actual=\(.actualValue) threshold=\(.errorThreshold)"'
+                                    exit 1
+                                fi
                                 QG_RESULT=OK
                                 break
                             fi
@@ -92,12 +99,19 @@ pipeline {
                         [ "$QG_RESULT" = "OK" ] || { echo "Quality Gate timed out — FAILING pipeline"; exit 1; }
 
                         echo "Checking Security Hotspots..."
-                        HOTSPOTS=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
-                            "$SONAR_HOST_URL/api/hotspots/search?projectKey=circleguard" \
-                            2>/dev/null | jq '[.hotspots[]? | select(.status != "REVIEWED")] | length' \
-                            2>/dev/null || echo 0)
+                        HOTSPOTS_RESPONSE=$(curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+                            "$SONAR_HOST_URL/api/hotspots/search?projectKey=circleguard" 2>/dev/null)
+                        HOTSPOTS=$(echo "$HOTSPOTS_RESPONSE" | \
+                            jq '[.hotspots[]? | select(.status != "REVIEWED")] | length' 2>/dev/null || echo 0)
                         echo "Unreviewed Security Hotspots: $HOTSPOTS"
-                        [ "$HOTSPOTS" -gt 0 ] && echo "Security Hotspots detected!" && exit 1
+                        if [ "$HOTSPOTS" -gt 0 ]; then
+                            echo "Unreviewed hotspots:"
+                            echo "$HOTSPOTS_RESPONSE" | jq -r \
+                                '.hotspots[]? | select(.status != "REVIEWED") |
+                                "  - [\(.ruleKey)] \(.message) (\(.component):\(.line))"' 2>/dev/null || true
+                            echo "FAILED — review or dismiss the hotspots listed above in SonarQube."
+                            exit 1
+                        fi
                         echo "No pending Security Hotspots"
                     '''
                 }

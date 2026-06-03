@@ -27,13 +27,13 @@ public class StorageService {
     public String store(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isBlank() || originalFilename.contains("..") || originalFilename.contains("/")) {
-            throw new RuntimeException("Invalid filename: " + originalFilename);
+            throw new IllegalArgumentException("Invalid filename: " + originalFilename);
         }
         try {
             String filename = UUID.randomUUID() + "_" + originalFilename;
             Path target = this.root.resolve(filename).normalize();
             if (!target.startsWith(this.root.normalize())) {
-                throw new RuntimeException("Path traversal attempt detected");
+                throw new IllegalStateException("Path traversal attempt detected");
             }
             Files.copy(file.getInputStream(), target);
             return filename;
