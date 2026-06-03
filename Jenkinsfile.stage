@@ -157,16 +157,20 @@ pipeline {
                     export ACR_TOKEN=$(az acr login --name circleguarddevacr \
                         --expose-token --output tsv --query accessToken)
 
+                    # Volume mounts are unavailable when DOCKER_HOST is a remote TCP daemon (DinD).
+                    # Read the ignore list on the agent and pass it into each container via env var.
+                    TRIVYIGNORE=$(grep -Ev '^[[:space:]]*(#|$)' .trivyignore 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)
+
                     for SVC in auth identity form promotion notification gateway dashboard file; do
                         IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
                         echo "=== Scanning $IMAGE ==="
                         docker run --rm \
-                            -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                             -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                             -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                            -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                            --entrypoint /bin/sh \
                             aquasec/trivy:latest \
-                            image --timeout 15m --exit-code 1 --severity CRITICAL \
-                                --ignorefile /tmp/.trivyignore "$IMAGE"
+                            -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --exit-code 1 --severity CRITICAL --ignorefile /tmp/.trivyignore \"$IMAGE\""
                     done
                 '''
             }
@@ -179,17 +183,19 @@ pipeline {
                         export ACR_TOKEN=$(az acr login --name circleguarddevacr \
                             --expose-token --output tsv --query accessToken)
 
+                        TRIVYIGNORE=$(grep -Ev '^[[:space:]]*(#|$)' .trivyignore 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)
+
                         rm -f trivy-*-report.json
                         for SVC in auth identity form promotion notification gateway dashboard file; do
                             IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
                             echo "=== Generating JSON report for $IMAGE ==="
                             docker run --rm \
-                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
+                                -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                                --entrypoint /bin/sh \
                                 aquasec/trivy:latest \
-                                image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed \
-                                    --ignorefile /tmp/.trivyignore --format json "$IMAGE" \
+                                -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format json \"$IMAGE\"" \
                                 > "trivy-${SVC}-report.json" 2>/dev/null || true
                         done
                     '''

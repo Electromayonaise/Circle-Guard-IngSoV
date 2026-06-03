@@ -189,6 +189,9 @@ pipeline {
                         export ACR_TOKEN=$(az acr login --name circleguarddevacr \
                             --expose-token --output tsv --query accessToken)
 
+                        # Volume mounts are unavailable when DOCKER_HOST is a remote TCP daemon (DinD).
+                        TRIVYIGNORE=$(grep -Ev '^[[:space:]]*(#|$)' .trivyignore 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)
+
                         rm -f trivy-master-report.txt
                         FAILED=0
 
@@ -197,29 +200,22 @@ pipeline {
                             echo "=== Scanning $IMAGE ===" | tee -a trivy-master-report.txt
 
                             docker run --rm \
-                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                aquasec/trivy:latest image \
-                                --timeout 15m \
-                                --severity CRITICAL,HIGH \
-                                --ignore-unfixed \
-                                --ignorefile /tmp/.trivyignore \
-                                --format table \
-                                "$IMAGE" 2>&1 | tee -a trivy-master-report.txt
+                                -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                                --entrypoint /bin/sh \
+                                aquasec/trivy:latest \
+                                -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format table \"$IMAGE\"" \
+                                2>&1 | tee -a trivy-master-report.txt
 
                             if docker run --rm \
-                                -v "$WORKSPACE/.trivyignore:/tmp/.trivyignore:ro" \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                aquasec/trivy:latest image \
-                                --timeout 15m \
-                                --exit-code 1 \
-                                --severity CRITICAL \
-                                --ignore-unfixed \
-                                --ignorefile /tmp/.trivyignore \
-                                --quiet \
-                                "$IMAGE" 2>/dev/null; then
+                                -e "TRIVYIGNORE=$TRIVYIGNORE" \
+                                --entrypoint /bin/sh \
+                                aquasec/trivy:latest \
+                                -c "printf '%s\n' \$TRIVYIGNORE > /tmp/.trivyignore && trivy image --timeout 15m --exit-code 1 --severity CRITICAL --ignore-unfixed --ignorefile /tmp/.trivyignore --quiet \"$IMAGE\"" \
+                                2>/dev/null; then
                                 echo "[PASS] $SVC — no CRITICAL vulnerabilities" | tee -a trivy-master-report.txt
                             else
                                 echo "[FAIL] $SVC — CRITICAL vulnerabilities found" | tee -a trivy-master-report.txt
