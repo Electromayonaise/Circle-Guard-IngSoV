@@ -11,5 +11,8 @@ spring:
   flyway:
     enabled: true
 
+storage:
+  upload-dir: ${java.io.tmpdir}/circleguard-test-uploads
+
 cors:
   allowed-origins: https://gateway-dev.circleguard.local,https://gateway-stage.circleguard.local,https://gateway-master.circleguard.local
