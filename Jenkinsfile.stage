@@ -157,21 +157,15 @@ pipeline {
                     export ACR_TOKEN=$(az acr login --name circleguarddevacr \
                         --expose-token --output tsv --query accessToken)
 
-                    printf 'CVE-2016-1000027\n' > "$WORKSPACE/.trivyignore"
-
                     for SVC in auth identity form promotion notification gateway dashboard file; do
                         IMAGE="${REGISTRY}/circleguard-${SVC}:${IMAGE_TAG}"
                         echo "=== Scanning $IMAGE ==="
                         docker run --rm \
                             -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                             -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                            -v "$WORKSPACE/.trivyignore:/workspace/.trivyignore:ro" \
-                            aquasec/trivy:latest image \
-                            --timeout 15m \
-                            --exit-code 1 \
-                            --severity CRITICAL \
-                            --ignorefile /workspace/.trivyignore \
-                            "$IMAGE"
+                            --entrypoint /bin/sh \
+                            aquasec/trivy:latest \
+                            -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --exit-code 1 --severity CRITICAL --ignorefile /tmp/.trivyignore $IMAGE"
                     done
                 '''
             }
@@ -191,14 +185,10 @@ pipeline {
                             docker run --rm \
                                 -e TRIVY_USERNAME=00000000-0000-0000-0000-000000000000 \
                                 -e TRIVY_PASSWORD="$ACR_TOKEN" \
-                                -v "$WORKSPACE/.trivyignore:/workspace/.trivyignore:ro" \
-                                aquasec/trivy:latest image \
-                                --timeout 15m \
-                                --severity CRITICAL,HIGH \
-                                --ignore-unfixed \
-                                --ignorefile /workspace/.trivyignore \
-                                --format table \
-                                "$IMAGE" 2>&1 | tee -a trivy-stage-report.txt || true
+                                --entrypoint /bin/sh \
+                                aquasec/trivy:latest \
+                                -c "echo CVE-2016-1000027 > /tmp/.trivyignore && trivy image --timeout 15m --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /tmp/.trivyignore --format table $IMAGE" \
+                                2>&1 | tee -a trivy-stage-report.txt || true
                         done
                     '''
                     archiveArtifacts artifacts: 'trivy-stage-report.txt', allowEmptyArchive: true
