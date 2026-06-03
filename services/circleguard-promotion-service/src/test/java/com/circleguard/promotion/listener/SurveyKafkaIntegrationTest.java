@@ -8,7 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -45,25 +45,25 @@ class SurveyKafkaIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private HealthStatusService healthStatusService;
 
-    @MockBean
+    @MockitoBean
     private Neo4jClient neo4jClient;
 
-    @MockBean
+    @MockitoBean
     private StringRedisTemplate redisTemplate;
 
-    @MockBean
+    @MockitoBean
     private CacheManager cacheManager;
 
-    @MockBean
+    @MockitoBean
     private com.circleguard.promotion.repository.jpa.SystemSettingsRepository systemSettingsRepository;
 
-    @MockBean
+    @MockitoBean
     private com.circleguard.promotion.repository.graph.UserNodeRepository userNodeRepository;
 
-    @MockBean
+    @MockitoBean
     private com.circleguard.promotion.repository.graph.CircleNodeRepository circleNodeRepository;
 
     @BeforeEach

@@ -3,7 +3,7 @@ package com.circleguard.notification.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
@@ -24,25 +24,25 @@ class StatusChangeNotificationIntegrationTest {
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
-    @MockBean
+    @MockitoBean
     private NotificationDispatcher dispatcher;
 
-    @MockBean
+    @MockitoBean
     private LmsService lmsService;
 
-    @MockBean
+    @MockitoBean
     private EmailService emailService;
 
-    @MockBean
+    @MockitoBean
     private SmsService smsService;
 
-    @MockBean
+    @MockitoBean
     private PushService pushService;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.mail.javamail.JavaMailSender mailSender;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.web.reactive.function.client.WebClient.Builder webClientBuilder;
 
     @Test
