@@ -192,3 +192,33 @@ resource "kubernetes_service" "sonarqube" {
     }
   }
 }
+
+resource "kubernetes_ingress_v1" "sonarqube" {
+  metadata {
+    name      = "sonarqube-ingress"
+    namespace = local.ns
+    annotations = {
+      "nginx.ingress.kubernetes.io/proxy-body-size"    = "64m"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" = "600"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" = "600"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    rule {
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.sonarqube.metadata[0].name
+              port { number = 9000 }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [kubernetes_deployment.sonarqube]
+}

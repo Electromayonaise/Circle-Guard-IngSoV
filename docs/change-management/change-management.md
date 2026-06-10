@@ -63,12 +63,12 @@ El branch `main` sigue siendo la única frontera real de promoción a producció
 
 | Criterio | Dev + Stage | Master |
 |----------|-------------|--------|
-| Pipeline de rama verde | ✅ | ✅ |
-| Al menos 1 aprobación | ✅ | ✅ |
-| Cobertura JaCoCo ≥ 60% | ✅ | ✅ |
-| Pruebas E2E verdes | Stage ✅ | ✅ |
-| Revisión de reporte ZAP | Stage ✅ | ✅ |
-| Revisión de rendimiento (Locust) | — | ✅ |
+| Pipeline de rama verde | Si | Si |
+| Al menos 1 aprobación | Si | Si |
+| Cobertura JaCoCo >= 60% | Si | Si |
+| Pruebas E2E verdes | Solo Stage | Si |
+| Revisión de reporte ZAP | Solo Stage | Si |
+| Revisión de rendimiento (Locust) | — | Si |
 
 ---
 

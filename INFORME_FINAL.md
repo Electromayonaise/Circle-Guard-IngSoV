@@ -139,11 +139,9 @@ graph TD
 
 Los microservicios **no** son gestionados por Terraform desde el módulo raíz — su despliegue es responsabilidad exclusiva de los pipelines de Jenkins, que construyen la imagen Docker, la publican en ACR y aplican el manifiesto Kubernetes de forma independiente al estado de Terraform.
 
-**Diagramas pendientes** (asignados al otro integrante del equipo):
+**Diagrama pendiente:**
 
-> _Pendiente — Diagrama C4 de la arquitectura de microservicios (Context, Containers, Components)._
-
-> _Pendiente — Diagrama de despliegue en Kubernetes (pods, services, ingress, volúmenes)._
+[Link Diagrama Deployment](https://drive.google.com/file/d/1i7xH9Kyk-hBi3xLovRSqsdKRGPJcW0eD/view?usp=sharing)
 
 ### 2.5. Implementar backend remoto para el estado de Terraform
 
@@ -170,21 +168,42 @@ El workspace muestra el historial de ejecuciones (plan/apply), el estado de la �
 
 ### 3.1. Identificar y documentar los patrones de diseño utilizados en la arquitectura existente
 
-| Patrón | Ubicación en el código | Descripción |
-|--------|----------------------|-------------|
-| **Observer** | Kafka: `form-service` publica → `promotion-service` consume → `notification-service` consume | Desacoplamiento asíncrono de eventos de dominio |
-| **Repository** | `IdentityRepository`, `SurveyRepository`, `QuestionnaireRepository` (Spring Data JPA) | Abstracción de acceso a datos por entidad |
-| **DTO / Mapper** | `SymptomMapper`, `SurveyMapper`, paquetes `dto/` en cada servicio | Separación entre modelo de dominio y contratos de API |
-| **Singleton** | Spring `@Bean`, `ApplicationContext` | Instancia única de componentes de infraestructura |
-| **API Gateway** | `circleguard-gateway-service` — valida JWT, cachea estado QR en Redis | Punto de entrada único, cross-cutting concerns centralizados |
+La documentación completa de cada patrón está en [docs/design-patterns/](docs/design-patterns/):
+
+| Patrón | Documentación | Ubicación en el código |
+|--------|--------------|----------------------|
+| **Observer** | [observer.md](docs/design-patterns/observer.md) | Kafka: `form-service` publica → `promotion-service` consume → `notification-service` consume |
+| **Repository** | [repository.md](docs/design-patterns/repository.md) | `IdentityMappingRepository`, `QuestionnaireRepository`, `HealthSurveyRepository` (Spring Data JPA) |
+| **DTO / Mapper** | [dto-mapper.md](docs/design-patterns/dto-mapper.md) | `SymptomMapper`, paquetes `dto/` en cada servicio |
+| **Singleton** | [singleton.md](docs/design-patterns/singleton.md) | Spring `@Bean`, `@Service`, `ApplicationContext` |
+| **API Gateway** | [api-gateway.md](docs/design-patterns/api-gateway.md) | `circleguard-gateway-service` — valida JWT, cachea estado QR en Redis |
 
 ### 3.2. Implementar o mejorar al menos tres patrones adicionales
 
-Se implementaron dos patrones adicionales (secciones 3.3 y 3.4). El patrón de resiliencia está asignado al compañero de equipo (ver 3.3).
+Se implementaron cuatro patrones adicionales documentados en [docs/design-patterns/resilience.md](docs/design-patterns/resilience.md):
+- Circuit Breaker + Retry con Exponential Backoff en `gateway-service`
+- Feature Toggle en `dashboard-service`
+- External Configuration vía Kubernetes ConfigMap/Secrets
 
 ### 3.3. Un patrón de resiliencia (Circuit Breaker, Bulkhead, etc.)
 
-> _Pendiente — asignado al otro integrante del equipo. Se implementará con Resilience4j en el `gateway-service`._
+**Circuit Breaker + Retry con Exponential Backoff** — implementado con **Resilience4j** en `circleguard-gateway-service`. Documentación completa: [docs/design-patterns/resilience.md](docs/design-patterns/resilience.md).
+
+Cuando `promotion-service` no responde, el gateway reintenta 3 veces con backoff exponencial (500ms → 1s → 2s). Si la tasa de fallos supera el 50% en una ventana de 10 llamadas, el Circuit Breaker abre y las llamadas siguientes se sirven directamente desde la caché Redis, sin intentar HTTP.
+
+```java
+// PromotionClient.java
+@CircuitBreaker(name = "promotionService", fallbackMethod = "getStatusFromCache")
+@Retry(name = "promotionService")
+public String getHealthStatus(String anonymousId) { ... }
+
+String getStatusFromCache(String anonymousId, Exception ex) {
+    String cached = redisTemplate.opsForValue().get("user:status:" + anonymousId);
+    return cached != null ? cached : "UNKNOWN";
+}
+```
+
+Test de resiliencia: `PromotionClientResilienceTest.java` — verifica exactamente 3 reintentos, el valor del fallback Redis y 0 llamadas HTTP cuando el CB está abierto.
 
 ### 3.4. Un patrón de configuración (External Configuration, Feature Toggle, etc.)
 
@@ -204,11 +223,17 @@ envFrom:
 
 ### 3.5. Documentar los patrones implementados, su propósito y beneficios
 
+Documentación completa en [docs/design-patterns/](docs/design-patterns/)
 | Patrón | Propósito | Beneficio |
 |--------|-----------|-----------|
-| External Configuration | Externalizar toda configuración hacia Kubernetes ConfigMap/Secrets | Imágenes inmutables reutilizables entre ambientes; rotación de credenciales sin rebuild |
-| Feature Toggle | Activar/desactivar analytics en `dashboard-service` sin redeploy | Despliegue continuo seguro; rollback instantáneo de features sin afectar el servicio |
-| API Gateway | Centralizar JWT validation, QR cache en Redis, enrutamiento | Un solo punto de entrada; cross-cutting concerns centralizados fuera de los microservicios |
+| **Observer** ([observer.md](docs/design-patterns/observer.md)) | Desacoplar productores de eventos de dominio de sus consumidores vía Kafka | Resiliencia ante caídas de servicios; nuevos consumidores sin modificar el productor |
+| **Repository** ([repository.md](docs/design-patterns/repository.md)) | Abstraer el acceso a datos detrás de interfaces Spring Data JPA | Servicios sin SQL; testabilidad con Mockito; queries declarativos por convención de nombres |
+| **DTO / Mapper** ([dto-mapper.md](docs/design-patterns/dto-mapper.md)) | Separar el modelo de dominio del contrato de API | Contrato JSON estable; datos internos no expuestos; mappers testables de forma aislada |
+| **Singleton** ([singleton.md](docs/design-patterns/singleton.md)) | Instancia única de clientes HTTP, Kafka y Redis gestionada por Spring | Reutilización de pools de conexiones; configuración centralizada; mockeable en tests |
+| **API Gateway** ([api-gateway.md](docs/design-patterns/api-gateway.md)) | Centralizar JWT validation, QR cache en Redis, Circuit Breaker | Un solo punto de entrada; microservicios de backend inaccesibles desde internet |
+| **Circuit Breaker + Retry** ([resilience.md](docs/design-patterns/resilience.md)) | Tolerar fallos transitorios de `promotion-service` | Acceso al campus ininterrumpido aunque el servicio de salud esté caído |
+| **Feature Toggle** ([resilience.md](docs/design-patterns/resilience.md)) | Activar/desactivar analytics en `dashboard-service` sin redeploy | Rollback instantáneo de features; despliegue continuo seguro |
+| **External Configuration** ([resilience.md](docs/design-patterns/resilience.md)) | Externalizar toda configuración hacia Kubernetes ConfigMap/Secrets | Imágenes Docker inmutables; rotación de credenciales sin rebuild |
 
 ---
 
@@ -249,11 +274,31 @@ Los tres namespaces (`dev`, `stage`, `master`) están activos en el cluster. Ver
 
 ### 4.3. Implementar SonarQube para análisis estático de código
 
-> _Pendiente — asignado al otro integrante del equipo._
+**SonarQube 10.4** corre en el namespace `sonarqube` del cluster AKS, accesible en `http://40.88.229.241`. Documentación completa: [docs/ci-cd/sonarqube.md](docs/ci-cd/sonarqube.md).
+
+El análisis de los 8 microservicios como proyecto multi-módulo se ejecuta en los pipelines de stage y master después de los tests unitarios. Se configuró un **Quality Gate personalizado** con 7 condiciones:
+
+| Condición | Umbral |
+|-----------|--------|
+| Issues | > 0 bloquea |
+| Security Hotspots Reviewed | < 100% bloquea |
+| Coverage | < 80% bloquea |
+| Duplicated Lines | > 3% bloquea |
+| Maintainability / Reliability / Security Rating | peor que A bloquea |
+
+**Iteración 1:** 14 security hotspots detectados en 6 categorías (CSRF disable, SQL concatenation, Weak PRNG, World-Writable directory, Wildcard CORS, debug output en producción).
+
+**Iteración 2:** Los 14 hotspots resueltos — Quality Gate en estado `OK`. Ver capturas de pantalla en [docs/ci-cd/sonarqube.md](docs/ci-cd/sonarqube.md).
 
 ### 4.4. Implementar Trivy para escaneo de vulnerabilidades en contenedores
 
-> _Pendiente — no implementado en el alcance actual._
+**Trivy** (Aqua Security) escanea las 8 imágenes Docker directamente desde ACR después del stage de Docker Build & Push. Documentación completa: [docs/ci-cd/trivy.md](docs/ci-cd/trivy.md).
+
+- Escanea CVEs de severidad `CRITICAL` y `HIGH`
+- **Bloquea el pipeline** si encuentra cualquier CVE `CRITICAL`
+- `HIGH` se reporta pero no bloquea
+- El reporte completo se archiva como artefacto de Jenkins: `trivy-stage-report.txt` / `trivy-master-report.txt`
+- Falsos positivos gestionados en `.trivyignore` versionado en el repositorio
 
 ### 4.5. Implementar versionado semántico automático
 
@@ -270,7 +315,15 @@ Las imágenes Docker se publican con dos tags: `vX.Y.Z` (inmutable) y `latest`. 
 
 ### 4.6. Configurar notificaciones automáticas para fallos en la pipeline
 
-> _Pendiente — asignado al otro integrante del equipo._
+Las notificaciones por email se envían automáticamente desde `vagos.tuneados@gmail.com` mediante el plugin **Extended Email Notification** de Jenkins. Los destinatarios se gestionan en Jenkins → Manage Jenkins → Configure System → Extended E-mail Notification → Default Recipients.
+
+| Pipeline | Cuándo se envía |
+|----------|----------------|
+| Dev | Solo en fallo |
+| Stage | Fallo + éxito |
+| Master | Fallo + éxito + cancelación (timeout del gate de aprobación) |
+
+El email de aprobación del pipeline master incluye links directos al dashboard de SonarQube y al reporte Trivy archivado, para que el aprobador pueda revisar los resultados de calidad y seguridad antes de hacer click en **Proceed** o **Abort**. Ver detalles en [docs/ci-cd/advanced-pipeline-guide.md](docs/ci-cd/advanced-pipeline-guide.md).
 
 ### 4.7. Implementar aprobaciones para despliegues a producción
 
@@ -403,12 +456,12 @@ Propuesta (issue GitHub con criterios de aceptación)
 
 | Criterio | Dev | Stage | Master |
 |----------|-----|-------|--------|
-| Pipeline verde | ✅ | ✅ | ✅ |
-| ≥1 aprobación PR | ✅ | ✅ | ✅ |
-| E2E verdes | — | ✅ | ✅ |
-| ZAP sin alertas críticas | — | ✅ | ✅ |
-| Locust rendimiento OK | — | — | ✅ |
-| JaCoCo ≥ 60% | ✅ | ✅ | ✅ |
+| Pipeline verde | Si | Si | Si |
+| >=1 aprobación PR | Si | Si | Si |
+| E2E verdes | — | Si | Si |
+| ZAP sin alertas críticas | — | Si | Si |
+| Locust rendimiento OK | — | — | Si |
+| JaCoCo >= 60% | Si | Si | Si |
 
 ### 6.2. Implementar generación automática de Release Notes
 
@@ -658,6 +711,17 @@ La verificación kubectl de la cadena TLS completa muestra los cuatro eslabones 
 |-----------|-----------|-----------|
 | Estrategia de branching | [docs/agile/branching-strategy.md](docs/agile/branching-strategy.md) | GitFlow simplificado, convenciones de ramas y commits |
 | Change Management y Rollback | [docs/change-management/change-management.md](docs/change-management/change-management.md) | Proceso formal de cambios, criterios por ambiente, planes de rollback |
+| Patrones de diseño — Índice | [docs/design-patterns/README.md](docs/design-patterns/README.md) | Índice de los 8 patrones con descripción resumida |
+| Patrón Observer | [docs/design-patterns/observer.md](docs/design-patterns/observer.md) | Eventos Kafka entre form-service, promotion-service y notification-service |
+| Patrón Repository | [docs/design-patterns/repository.md](docs/design-patterns/repository.md) | Spring Data JPA en los 8 microservicios |
+| Patrón DTO / Mapper | [docs/design-patterns/dto-mapper.md](docs/design-patterns/dto-mapper.md) | SymptomMapper y paquetes dto/ |
+| Patrón Singleton | [docs/design-patterns/singleton.md](docs/design-patterns/singleton.md) | Beans de Spring: RestTemplate, KafkaTemplate, StringRedisTemplate |
+| Patrón API Gateway | [docs/design-patterns/api-gateway.md](docs/design-patterns/api-gateway.md) | gateway-service: JWT, Redis cache, Circuit Breaker, TLS |
+| Patrones de resiliencia y configuración | [docs/design-patterns/resilience.md](docs/design-patterns/resilience.md) | Circuit Breaker, Retry, Feature Toggle, External Configuration |
+| CI/CD — SonarQube | [docs/ci-cd/sonarqube.md](docs/ci-cd/sonarqube.md) | Quality Gate, resolución de 14 hotspots, iteraciones 1 y 2 |
+| CI/CD — Trivy | [docs/ci-cd/trivy.md](docs/ci-cd/trivy.md) | Escaneo de imágenes Docker, política de severidad, remedios |
+| CI/CD — Pipeline avanzado | [docs/ci-cd/advanced-pipeline-guide.md](docs/ci-cd/advanced-pipeline-guide.md) | 3 pipelines, stages, gates de aprobación, notificaciones |
+| Manual de operaciones | [docs/operations/operations-manual.md](docs/operations/operations-manual.md) | 13 secciones: accesos, logs, rollback, escalado, monitoreo |
 | Informe Final | [INFORME_FINAL.md](INFORME_FINAL.md) | Este documento: todos los puntos del proyecto con evidencias |
 
 ### 9.2. Repositorio Git organizado
@@ -747,4 +811,4 @@ kubectl top pods -n dev
 
 ### 9.6. Presentación del proyecto
 
-> _Pendiente — se preparará para la sesión de presentación (20–30 minutos)._
+[Presentacion final en canva](https://canva.link/0zsnzr70q652xwa)
