@@ -139,7 +139,7 @@ graph TD
 
 Los microservicios **no** son gestionados por Terraform desde el módulo raíz — su despliegue es responsabilidad exclusiva de los pipelines de Jenkins, que construyen la imagen Docker, la publican en ACR y aplican el manifiesto Kubernetes de forma independiente al estado de Terraform.
 
-**Diagrama pendiente:**
+**Diagrama:**
 
 [Link Diagrama Deployment](https://drive.google.com/file/d/1i7xH9Kyk-hBi3xLovRSqsdKRGPJcW0eD/view?usp=sharing)
 
@@ -807,7 +807,7 @@ kubectl top pods -n dev
 
 ### 9.5. Video demostrativo del funcionamiento
 
-> _Pendiente — se grabará previo a la entrega final._
+Adjuntado en la entrega
 
 ### 9.6. Presentación del proyecto
 
