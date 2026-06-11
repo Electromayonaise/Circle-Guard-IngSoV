@@ -6,7 +6,7 @@
 
 ---
 
-## Informe Final
+## Informe Final - Reporte
 
 > **[→ Ver Informe Final del Proyecto](INFORME_FINAL.md)**
 
